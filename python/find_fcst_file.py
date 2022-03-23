@@ -190,19 +190,27 @@ def find_fcst_file(system, date, leadhrs, ie, src='ocn', execute=False):
 	    if ( not os.path.isfile(file_fcst) ):
 	        # GET FROM ARCHIVE WHEN MODULE WRITTEN.
 	        rc=get_archive.get_archive(arc_fcst, branch=branch, date=date, fcst_hour=leadhrs, execute=execute)
-	        if ( not os.path.isfile(file_fcst) ):
+	        if ( ( not os.path.isfile(file_fcst) ) and execute ):
 	            raise Exception('File '+file_fcst+' does not exist' )
 
-    if ( not os.path.isfile(file_fcst) ):
+    if ( not os.path.isfile(file_fcst) and execute ):
         print "find_fcst_file", system, date, leadhrs, ie, src, execute
 	raise Exception('File '+file_fcst+' does not exist' )
 
     return file_fcst
 
-def find_anal_file(date, system='gd', var='T',execute=False):
-    if ( system == 'pd' ): 
-        print('Not configured ', system)
+def find_anal_file(date, system='gd', anal=True, var='T',execute=False):
+    if ( not isinstance(anal, bool) ):
+        if ( isinstance(anal, str) ):
+	    if ( ( anal == 'ANAL' ) or ( anal == 'anal' ) ): anal=True
+	    if ( ( anal == 'TRIAL' ) or ( anal == 'trial' ) ): anal=False
+    if ( not isinstance(anal, bool) ):
+        print('Do Not Understand anal = ', anal)
 	return 'Null', 'Null'
+         
+    #if ( system == 'pd' ): 
+    #    print('Not configured ', system)
+    #	return 'Null', 'Null'
     this_date_str1 = date.strftime('%Y%m%d')
     this_date_str2 = this_date_str1+'00'
     weekday = date.weekday()
@@ -213,23 +221,25 @@ def find_anal_file(date, system='gd', var='T',execute=False):
     #dir_mgan='eccc-ppp4:/home/smco500/.suites/giops_20191231/'+system+'/hub/eccc-ppp4/SAM2/'+this_date_str1+'/DIA'
     #dir_mgbn='eccc-ppp4:/home/smco500/.suites/giops_20191231/'+system+'/hub/eccc-ppp4/SAM2/'+this_date_str1+'/DIA'
 
-    ps_file_anal= dir_psan+'/ORCA025-CMC-ANAL_1d_grid_'+var+'_'+this_date_str2+'.nc.gz'
-    ps_file_ssh= dir_psan+'/ORCA025-CMC-ANAL_1h_grid_T_2D_'+this_date_str2+'.nc.gz'
-    op_file_anal= dir_opan+'/ORCA025-CMC-ANAL_1d_grid_'+var+'_'+this_date_str2+'.nc.gz'
-    op_file_ssh= dir_opan+'/ORCA025-CMC-ANAL_1h_grid_T_2D_'+this_date_str2+'.nc.gz'
-    #mg_file_anal= dir_mgan+'/ORCA025-CMC-ANAL_1d_grid_'+var+'_'+this_date_str2+'.nc.gz'
-    #mg_file_ssh= dir_mgan+'/ORCA025-CMC-ANAL_1h_grid_T_2D_'+this_date_str2+'.nc.gz'
+    if ( anal ): ANAL='ANAL'
+    if ( not anal ): ANAL='TRIAL'
+    ps_file_anal= dir_psan+'/ORCA025-CMC-'+ANAL+'_1d_grid_'+var+'_'+this_date_str2+'.nc.gz'
+    ps_file_ssh= dir_psan+'/ORCA025-CMC-'+ANAL+'_1h_grid_T_2D_'+this_date_str2+'.nc.gz'
+    op_file_anal= dir_opan+'/ORCA025-CMC-'+ANAL+'_1d_grid_'+var+'_'+this_date_str2+'.nc.gz'
+    op_file_ssh= dir_opan+'/ORCA025-CMC-'+ANAL+'_1h_grid_T_2D_'+this_date_str2+'.nc.gz'
+    #mg_file_anal= dir_mgan+'/ORCA025-CMC-'+ANAL+'_1d_grid_'+var+'_'+this_date_str2+'.nc.gz'
+    #mg_file_ssh= dir_mgan+'/ORCA025-CMC-'+ANAL+'_1h_grid_T_2D_'+this_date_str2+'.nc.gz'
 
     if ( ( system == 'gu' ) or ( system == 'gd' ) ):
         file_anal = tmpcp.tmpcpgz(op_file_anal, tmpdir=datadir+'/tmpdir/'+system)
         file_ssh  = tmpcp.tmpcpgz(op_file_ssh,  tmpdir=datadir+'/tmpdir/'+system)
 
-    if ( ( system == 'pu' ) ):
+    if ( ( system == 'pu' ) or ( system == 'pd' ) ):
         file_anal = tmpcp.tmpcpgz(ps_file_anal, tmpdir=datadir+'/tmpdir/'+system)
         file_ssh  = tmpcp.tmpcpgz(ps_file_ssh,  tmpdir=datadir+'/tmpdir/'+system)
  
     if ( ( not os.path.isfile(file_anal) ) or ( not os.path.isfile(file_ssh) ) ):
-        get_archived_analysis(date, system=system, execute=execute)
+        get_archived_analysis(date, system=system, ANAL=ANAL, execute=execute)
     
     if ( not os.path.isfile(file_anal) ):
 	raise Exception('File '+file_anal+' does not exist' )
@@ -246,7 +256,7 @@ def get_cmcarc_analysis(date, system='gu'):
     file_cmcarc = dir_mgan+this_date_str2+'_.ca'
     return
     
-def get_archived_analysis(date, system='gd', execute=False):
+def get_archived_analysis(date, system='gd', ANAL='ANAL', execute=False):
     date_string = date.strftime('%Y%m%d%H')
     arc_anal=archive+'/'+system
     branch='operation.diagnostics.giops.'+system
@@ -257,11 +267,11 @@ def get_archived_analysis(date, system='gd', execute=False):
     arguements=['-v', '-p', '-x']
     files=[]
     for grid in ['T', 'U', 'V']:
-        file='ORCA025-CMC-ANAL_1d_grid_'+grid+'_'+date_string+'.nc.gz'
+        file='ORCA025-CMC-'+ANAL+'_1d_grid_'+grid+'_'+date_string+'.nc.gz'
         add='DIA/'+file
 	arguements.append(add)
 	files.append(arc_anal+'/'+file)
-    file='ORCA025-CMC-ANAL_1h_grid_T_2D_'+date_string+'.nc.gz'
+    file='ORCA025-CMC-'+ANAL+'_1h_grid_T_2D_'+date_string+'.nc.gz'
     add='DIA/'+file
     arguements.append(add)
     files.append(arc_anal+'/'+file)	

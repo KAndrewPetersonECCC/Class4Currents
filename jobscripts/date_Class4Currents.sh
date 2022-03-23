@@ -6,7 +6,9 @@ USAGE="USAGE:  date_Class4Currents.sh -d=CCYYMMDD"
 
 SUBMIT=False
 SINGLE=False
-PLOT=True
+PLOT=False
+CHARLY=True
+FILTER=True
 for i in "$@"
 do
 case $i in
@@ -30,8 +32,20 @@ case $i in
     PLOT=True
     shift # past argument=value
     ;;
-    -np|--no_plot)
+    -q|--no_plot)
     PLOT=False
+    shift # past argument=value
+    ;;
+    -o|--orig)
+    CHARLY=False
+    shift # past argument=value
+    ;;
+    -f|--filter)
+    FILTER=True
+    shift # past argument=value
+    ;;
+    -u|--not_filter)
+    FILTER=False
     shift # past argument=value
     ;;
     *)
@@ -54,9 +68,9 @@ fi
 WDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 cd ${WDIR}
 
-BJOB=${WDIR}/JOBS/date_Class4Currents.${DATE}.sh
-NJOB=${WDIR}/JOBS/date_Class4Currents.${NEXT}.sh
-PJOB=${WDIR}/JOBS/date_Class4Currents.${DATE}.py
+BJOB=${WDIR}/JOBS/date_Class4Currents.${DATE}.${CHARLY:0:1}${FILTER:0:1}.sh
+NJOB=${WDIR}/JOBS/date_Class4Currents.${NEXT}.${CHARLY:0:1}${FILTER:0:1}.sh
+PJOB=${WDIR}/JOBS/date_Class4Currents.${DATE}.${CHARLY:0:1}${FILTER:0:1}.py
 SJOB="ord_soumet ${BJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 CJOB="ord_soumet ${NJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 
@@ -95,7 +109,7 @@ datefile='DATES/todo.date'
 date=datadatefile.convert_strint_date(datestr)
 print("PROCESSING DATE", datestr, date)
 try:
-    Class4Current.process_obsfile(date=date, TEST_SINGLE=${SINGLE}, Plot=${PLOT})
+    Class4Current.process_obsfile(date=date, TEST_SINGLE=${SINGLE}, Plot=${PLOT}, CHARLY=${CHARLY}, filter=${FILTER})
 except:
     print(traceback.format_exc())
     sys.stdout.flush()

@@ -5,6 +5,9 @@ WDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 USAGE="USAGE:  date_Class4Currents.sh -s=CCYYMMDD -f=CCYYMMDD"
 
 IGNORE=False
+PLOT="--p"
+CHARLY=""
+FILTER="--filter"
 for i in "$@"
 do
 case $i in
@@ -14,6 +17,26 @@ case $i in
     ;;
     -f=*|--final=*)
     FINALDATE="${i#*=}"
+    shift # past argument=value
+    ;;
+    -p|--plot)
+    PLOT="-p"
+    shift # past argument=value
+    ;;
+    -q|--no_plot)
+    PLOT="-q"
+    shift # past argument=value
+    ;;
+    -o|--orig)
+    CHARLY="-o"
+    shift # past argument=value
+    ;;
+    --filter)
+    FILTER="--filter"
+    shift # past argument=value
+    ;;
+    --not_filter)
+    FILTER="--not_filter"
     shift # past argument=value
     ;;
     -i|--ignore)
@@ -56,14 +79,17 @@ while [[ ${THISTIME} -le ${FINALTIME} ]] ; do
     NEXTTIME=$(date -u --date ${NEXT} +%s)
     if [[ ${ZERO} == True ]];  then
         echo "Submitting Zeroth Job"
-	bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} --next=${NEXT} --plot -s
+	echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT} -s"
+	bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT} -s
 	ZERO=False
     else
         echo "Preparing Other Jobs"
         if [[ ${NEXTTIME} -le ${FINALTIME} ]]; then 
-            bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} --plot --next=${NEXT}
+	    echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT}"
+            bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT}
 	else
-	    bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE}
+	    echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER}"
+	    bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER}
 	fi
     fi
      
