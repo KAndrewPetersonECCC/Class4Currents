@@ -8,6 +8,7 @@ import numpy as np
 import datetime
 import time
 import subprocess
+import glob
 import matplotlib.pyplot as plt
 
 import find_fcst_file
@@ -19,12 +20,12 @@ import bering_diurnal
 import cplot
 import find_hall
 import datadatefile
-import glob
 
 KCONV=273.16
 
 cmap_full_field='gist_stern_r'
 cmap_anom_field='seismic'
+cmap_anom_fmask='RdYlBu_r'
 
 mask = read_grid.read_mask(var='tmask')
 maskt = read_grid.read_mask(var='tmask')
@@ -56,6 +57,8 @@ tempdir=datadir+'/'+'tmpdir'
 missing=-999
 
 date_ic2 = datetime.datetime(2019,7,3)
+date_ic3 = datetime.datetime(2021,12,1,12)
+date_mg1 = datetime.datetime(2020,1,21,12)
 
 def UU_ORCA_to_NE(UV):
     hall=find_hall.find_hall()
@@ -82,17 +85,17 @@ def calc_u15(UVin, e3tin, maskin):
     [u15, v15] = calc_m15(UVin, e3tin, maskin)
     return [u15, v15]
 
-def calc_u15_from_3hr(file_3hrs):
+def calc_u15_from_3hr(file_3hrs, vfreq=3, newnorm=True):   ## ALSO SHOULD WORK FOR daily files if vfreq=24
     U10_list = []
     U20_list = []
     V10_list = []
     V20_list = []
     for file_3hr in file_3hrs:
-        ldu, UD = stfd.read_fstd_multi_lev(file_3hr, 'UU2W', vfreq=3, typvar='P@')
+        ldu, UD = stfd.read_fstd_multi_lev(file_3hr, 'UU2W', vfreq=vfreq, typvar='P@')
         idu=[ldu.index(10.0), ldu.index(20.0)]
         U10_list.append(UD[idu[0]])
         U20_list.append(UD[idu[1]])
-        ldv, VD = stfd.read_fstd_multi_lev(file_3hr, 'VV2W', vfreq=3, typvar='P@')
+        ldv, VD = stfd.read_fstd_multi_lev(file_3hr, 'VV2W', vfreq=vfreq, typvar='P@')
         idv=[ldv.index(10), ldv.index(20)]
         V10_list.append(VD[idv[0]])
         V20_list.append(VD[idv[1]])
@@ -101,8 +104,12 @@ def calc_u15_from_3hr(file_3hrs):
     V10 = sum(V10_list)/len(V10_list)
     V20 = sum(V20_list)/len(V20_list)
     #NOTE: SIMPLICATION OF U15D = (20.0*U20 - 10.0*U10) / (20.0-10.0)
-    U15D = 2.0*U20 - U10
-    V15D = 2.0*V20 - V10
+    if ( newnorm ):
+        U15D = 2.0*U20 - U10
+        V15D = 2.0*V20 - V10
+    else:
+        U15D = ( U20 - U10 ) / 10.0
+	V15D = ( V20 - V20 ) / 10.0
     return U15D, V15D
     
 def calc_u00_from_3hr(file_3hrs, depth):
@@ -133,6 +140,21 @@ def speed_and_angle(u, v):
     nzero = np.where( (u!=0) | (v!=0) ) 
     angle[nzero] = np.arctan2(v[nzero], u[nzero])
     return speed, angle
+    
+def speed_and_angle_easy(U):
+    S = 0.0*U.copy()
+    if ( U.ndim == 3 ):  S[:,0,:], S[:,1,:] = speed_and_angle(U[:,0,:], U[:,1,:])
+    if ( U.ndim == 4 ):  S[:,0,:,:], S[:,1,:,:] = speed_and_angle(U[:,0,:,:], U[:,1,:,:])
+    if ( U.ndim == 5 ):  S[:,0,:,:,:], S[:,1,:,:,:] = speed_and_angle(U[:,0,:,:,:], U[:,1,:,:,:])
+    return S
+     
+def speed_and_angle_list(Ulist):
+    Slist=[]
+    for U in Ulist:
+        Slist.append(speed_and_angle_easy(U))
+    return Slist
+    
+     
        
 def fine_grid_mask(FD, e3tin):
     maskf=np.ones(FD.shape)
@@ -285,7 +307,7 @@ def filter_standard_file(filter, source_file, destination_file):
     if ( destination_file == source_file ): 
         clobber="--clobber"
 	destination_file = source_file+'.tmp'
-    rc=subprocess.call(['bash' , script, '-f='+filter, '-i='+source_file, '-o='+destination_file])
+    rc=subprocess.call(['bash' , script, '-f='+filter, '-i='+source_file, '-o='+destination_file, clobber])
     return rc
     
 def test_interpolation(date, lead, ref_grid=grid_dir+grid_ref):
@@ -358,15 +380,21 @@ def calc_error(obser, model, isangle=-1):
 	return None
 	
     if ( mfcst == 0 ):
-        ERROR = model - obser
+        ERROR = obser - model
         if ( isangle >= 0 ):
-            ERROR[:,isangle,:] = ERROR[:, isangle, :] % (2*np.pi)
+	    for iobss in range(mobss):
+	      for ideps in range(mdeps):
+	        if ( ERROR[iobss,isangle,ideps] >=      np.pi ): ERROR[iobss,isangle,ideps] = ERROR[iobss,isangle,ideps] - 2*np.pi
+	        if ( ERROR[iobss,isangle,ideps] <= -1.0*np.pi ): ERROR[iobss,isangle,ideps] = 2*np.pi + ERROR[iobss,isangle,ideps]
     if ( mfcst > 0 ):
         ERROR = 0.0*model.copy()
         for ifcst in range(mfcst):
 	    ERROR[:,:,ifcst,:] = model[:,:,ifcst,:] - obser[:,:,:]
 	    if ( isangle >= 0 ):
-	        ERROR[:,isangle,ifcst,:] = ERROR[:,isangle,ifcst,:] % (2*np.pi)
+	        for iobss in range(mobss):
+		  for ideps in range(mdeps):
+	            if ( ERROR[iobss,isangle,ifcst,ideps] >=      np.pi ): ERROR[iobss,isangle,ifcst,ideps] = ERROR[iobss,isangle,ifcst,ideps] - 2*np.pi
+	            if ( ERROR[iobss,isangle,ifcst,ideps] <= -1.0*np.pi ): ERROR[iobss,isangle,ifcst,ideps] = 2*np.pi + ERROR[iobss,isangle,ifcst,ideps]
 	    
     return ERROR
 
@@ -391,9 +419,10 @@ def calc_mean_error(obser, model, isangle=-1):
 
     error = calc_error(obser, model, isangle=isangle)
     mean_error = np.mean(error, axis=0)
-    rmse_error = np.std (error, axis=0)
-   
-    return mean_error, rmse_error
+    rmse_error = np.mean(np.square(error), axis=0)
+    abse_error = np.mean(np.absolute(error), axis=0)
+    
+    return mean_error, rmse_error, abse_error
 	
 tate=datetime.datetime(2021, 10, 31)
 def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filter=True):
@@ -425,19 +454,14 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 
     inite = beste.copy()
     nersi = persi.copy()
-    Mobser = 0.0*obser.copy()
-    Mbeste = 0.0*beste.copy()
-    Minite = 0.0*beste.copy()
-    Mfcstv = 0.0*fcstv.copy()
-    Mpersi = 0.0*persi.copy()
-    Mnersi = 0.0*nersi.copy()
+
+    Mobser = speed_and_angle_easy(obser)
+    Mbeste = speed_and_angle_easy(beste)
+    Minite = speed_and_angle_easy(inite)
+    Mfcstv = speed_and_angle_easy(fcstv)
+    Mpersi = speed_and_angle_easy(persi)
+    Mnersi = speed_and_angle_easy(nersi)
     
-    Mobser[:,0,:], Mobser[:,1,:] = speed_and_angle(obser[:,0,:], obser[:,1,:])
-    Mbeste[:,0,:], Mbeste[:,1,:] = speed_and_angle(beste[:,0,:], beste[:,1,:])
-    Minite[:,0,:], Minite[:,1,:] = speed_and_angle(inite[:,0,:], inite[:,1,:])
-    Mfcstv[:,0,:,:], Mfcstv[:,1,:,:] = speed_and_angle(fcstv[:,0,:,:], fcstv[:,1,:,:])
-    Mpersi[:,0,:,:], Mpersi[:,1,:,:] = speed_and_angle(persi[:,0,:,:], persi[:,1,:,:])
-    Mnersi[:,0,:,:], Mnersi[:,1,:,:] = speed_and_angle(nersi[:,0,:,:], nersi[:,1,:,:])  
 
     nobss, nvars, nfcst, ndeps = fcstv.shape
     if ( TEST_SINGLE ):
@@ -474,18 +498,18 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 
     MERCATOR_MEAN_ERRORS =  calc_mean_error(obser, (beste, inite, fcstv, persi, nersi))   
     mr_ERRMb, mr_ERRMi, mr_ERRMf, mr_ERRMp, mr_ERRMn = MERCATOR_MEAN_ERRORS
-    mean_ERRMb, rmse_ERRMb = mr_ERRMb
-    mean_ERRMi, rmse_ERRMi = mr_ERRMi
-    mean_ERRMf, rmse_ERRMf = mr_ERRMf 
-    mean_ERRMp, rmse_ERRMp = mr_ERRMp
-    mean_ERRMn, rmse_ERRMn = mr_ERRMn
-    MERCATOR_MMEAN_ERRORS = calc_mean_error(Mobser, (Mbeste, Minite, Mfcstv, Mpersi, Mnersi))
+    mean_ERRMb, rmse_ERRMb, abse_ERRMb = mr_ERRMb
+    mean_ERRMi, rmse_ERRMi, abse_ERRMi = mr_ERRMi
+    mean_ERRMf, rmse_ERRMf, abse_ERRMf = mr_ERRMf 
+    mean_ERRMp, rmse_ERRMp, abse_ERRMp = mr_ERRMp
+    mean_ERRMn, rmse_ERRMn, abse_ERRMn = mr_ERRMn
+    MERCATOR_MMEAN_ERRORS = calc_mean_error(Mobser, (Mbeste, Minite, Mfcstv, Mpersi, Mnersi),isangle=1)
     mr_ERMMb, mr_ERMMi, mr_ERMMf, mr_ERMMp, mr_ERMMn = MERCATOR_MMEAN_ERRORS
-    mean_ERMMb, rmse_ERMMb = mr_ERMMb
-    mean_ERMMi, rmse_ERMMi = mr_ERMMi
-    mean_ERMMf, rmse_ERMMf = mr_ERMMf 
-    mean_ERMMp, rmse_ERMMp = mr_ERMMp
-    mean_ERMMn, rmse_ERMMn = mr_ERMMn
+    mean_ERMMb, rmse_ERMMb, abse_ERMMb = mr_ERMMb
+    mean_ERMMi, rmse_ERMMi, abse_ERMMi = mr_ERMMi
+    mean_ERMMf, rmse_ERMMf, abse_ERMMf = mr_ERMMf 
+    mean_ERMMp, rmse_ERMMp, abse_ERMMp = mr_ERMMp
+    mean_ERMMn, rmse_ERMMn, abse_ERMMn = mr_ERMMn
 
     if ( not TEST_SINGLE ):  ## DON"T DO FOR TEST  
         
@@ -578,12 +602,12 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 
     if ( ndeps == 2 ):
         BEST=[
-          [[T00,  U00,  V00],  [T15,  U15,  V15]],
+          [[T00m, U00m, V00m], [T15m, U15m, V15m]],
 	  [[T00f, U00f, V00f], [T15f, U15f, V15f]]
 	     ]
     elif ( ndeps == 1 ):
         BEST=[
-          [[T15,  U15,  V15]],
+          [[T15m, U15m, V15m]],
 	  [[T15f, U15f, V15f]]
 	     ]
 
@@ -629,12 +653,12 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 
     if ( ndeps == 2 ):
         INIT=[
-          [[T00,  U00,  V00],  [T15,  U15,  V15]],
+          [[T00m, U00m, V00m], [T15m, U15m, V15m]],
 	  [[T00f, U00f, V00f], [T15f, U15f, V15f]]
 	     ]
     elif ( ndeps == 1 ):
         INIT=[
-          [[T15,  U15,  V15]],
+          [[T15m, U15m, V15m]],
 	  [[T15f, U15f, V15f]]
 	     ]
 
@@ -648,6 +672,20 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
     FCST=[]
     PERS=[]
     NERS=[]
+
+    # GET A WHOLE BUNCH OF FILES AHEAD OF REQUIRED TIME:  LESS CALLS TO RARC?  
+    SYS='NUL'    
+    if ( bedate-datetime.timedelta(days=10) > date_ic2 ): 
+        SYS='OPD'
+        tmpdir=tempdir+'/'+SYS+'/'
+        branch='operation.forecasts.giops.prog.glboce'
+    if ( bedate < date_ic2 ): 
+	SYS='PSD'
+	tmpdir=tempdir+'/'+SYS+'/'
+	branch='parallel.forecasts.giops.prog.glboce'
+    if ( SYS != 'NUL'):
+        rc = get_archive.get_archive_leads(tmpdir, branch, [bedate-datetime.timedelta(days=10), bedate], (np.arange(0,240,3)+3).tolist(), ensnum=None, execute=True)
+
     for ifcst in range(nfcst):
         jfcst=ifcst+1
         fchour=jfcst*24
@@ -717,7 +755,7 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 		    subprocess.call('RM', file_intr)
 	    except:
 	        print('RM '+file_intr+' NOT STFD')
-	        subprocess.call('rm', file_intr)
+	        subprocess.call(['rm', file_intr])
 	if ( not os.path.isfile(file_intr) ):
 	    rc = cst_interpolation(file_fcst, file_intr, ref_grid=grid_dir+'dest_grid.std.2')
         print('file_best', file_best, os.path.isfile(file_best))
@@ -749,12 +787,12 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 
         if ( ndeps == 2 ):
             PERS.append([
-	             [[T00,  U00,  V00],[T15,  U15,  V15]],
+	             [[T00m, U00m, V00m],[T15m, U15m, V15m]],
 	             [[T00f, U00f, V00f],[T15f, U15f, V15f]]
 		        ])
         elif ( ndeps == 1 ):
             PERS.append([
-	             [[T15,  U15,  V15]],
+	             [[T15m, U15m, V15m]],
 	             [[T15f, U15f, V15f]]
 		        ])
  
@@ -780,12 +818,12 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 
         if ( ndeps == 2 ):
             NERS.append([
-	             [[T00,  U00,  V00],[T15,  U15,  V15]],
+	             [[T00m, U00m, V00m],[T15m, U15m, V15m]],
 	             [[T00f, U00f, V00f],[T15f, U15f, V15f]]
 		        ])
         elif ( ndeps == 1 ):
             NERS.append([
-	             [[T15,  U15,  V15]],
+	             [[T15m, U15m, V15m]],
 	             [[T15f, U15f, V15f]]
 		        ])
 
@@ -877,14 +915,14 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 
         if ( ndeps == 2 ):
             FCST.append([
-	             [[T00,  U00,  V00],[T15,  U15,  V15]],
+	             [[T00m, U00m, V00m],[T15,  U15,  V15]],
 	             [[T00f, U00f, V00f],[T15f, U15f, V15f]],
 		     [[T00i, U00i, V00i],[T15i, U15i, V15i]],
 		     [[T00g, U00g, V00g],[T15g, U15g, V15g]]
 		        ])
         elif ( ndeps == 1 ):
             FCST.append([
-	             [[T15,  U15,  V15]],
+	             [[T15m, U15m, V15m]],
 	             [[T15f, U15f, V15f]],
 		     [[T15i, U15i, V15i]],
 	             [[T15g, U15g, V15g]]
@@ -902,7 +940,7 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
     for iobs in range(nobss_loop):
 
         [LONP, LATP] = LONO[iobs], LATO[iobs]
-	IJPTS = find_nearest_points((LONP, LATP), [(LONN, LATN), (LONF, LATF), (LONG, LATG), (LONF, LATF) ])
+	IJPTS = find_nearest_points((LONP, LATP), [(LONM, LATM), (LONF, LATF), (LONG, LATG), (LONF, LATF) ])
 	IJPT, IJPF, IJPI, IJPG = IJPTS
 	print('IJPTS', IJPTS)
 
@@ -1060,34 +1098,27 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
 	tempp = TEMPP_LIST[ig]
 	tempn = TEMPN_LIST[ig]
 		
-        Mobser = 0.0*obser.copy()
-        Mbeste = 0.0*beste.copy()
-	Minite = 0.0*inite.copy()
-        Mfcstv = 0.0*fcstv.copy()
-        Mpersi = 0.0*persi.copy()
-	Mnersi = 0.0*nersi.copy()
-
-        Mobser[:,0,:], Mobser[:,1,:] = speed_and_angle(obser[:,0,:], obser[:,1,:])
-        Mbeste[:,0,:], Mbeste[:,1,:] = speed_and_angle(beste[:,0,:], beste[:,1,:])
-	Minite[:,0,:], Minite[:,1,:] = speed_and_angle(inite[:,0,:], inite[:,1,:])
-        Mfcstv[:,0,:,:], Mfcstv[:,1,:,:] = speed_and_angle(fcstv[:,0,:,:], fcstv[:,1,:,:])
-        Mpersi[:,0,:,:], Mpersi[:,1,:,:] = speed_and_angle(persi[:,0,:,:], persi[:,1,:,:])
-        Mnersi[:,0,:,:], Mnersi[:,1,:,:] = speed_and_angle(nersi[:,0,:,:], nersi[:,1,:,:])
-
+        Mobser = speed_and_angle_easy(obser)
+        Mbeste = speed_and_angle_easy(beste)
+        Minite = speed_and_angle_easy(inite)
+        Mfcstv = speed_and_angle_easy(fcstv)
+        Mpersi = speed_and_angle_easy(persi)
+        Mnersi = speed_and_angle_easy(nersi)
+        
         CCMEP_MEAN_ERRORS = calc_mean_error(obser, (beste, inite, fcstv, persi, nersi))
         mr_ERRCb, mr_ERRCi, mr_ERRCf, mr_ERRCp, mr_ERRCn = CCMEP_MEAN_ERRORS
-	mean_ERRCb, rmse_ERRCb = mr_ERRCb
-	mean_ERRCi, rmse_ERRCi = mr_ERRCi
-	mean_ERRCf, rmse_ERRCf = mr_ERRCf
-	mean_ERRCp, rmse_ERRCp = mr_ERRCp
-        mean_ERRCn, rmse_ERRCn = mr_ERRCn
+	mean_ERRCb, rmse_ERRCb, abse_ERRCb = mr_ERRCb
+	mean_ERRCi, rmse_ERRCi, abse_ERRCi = mr_ERRCi
+	mean_ERRCf, rmse_ERRCf, abse_ERRCf = mr_ERRCf
+	mean_ERRCp, rmse_ERRCp, abse_ERRCp = mr_ERRCp
+        mean_ERRCn, rmse_ERRCn, abse_ERRCn = mr_ERRCn
 	CCMEP_MMEAN_ERRORS = calc_mean_error(Mobser, (Mbeste, Minite, Mfcstv, Mpersi, Mnersi), isangle=1)
         mr_ERMCb, mr_ERMCi, mr_ERMCf, mr_ERMCp, mr_ERMCn = CCMEP_MMEAN_ERRORS
-	mean_ERMCb, rmse_ERMCb = mr_ERMCb
-	mean_ERMCi, rmse_ERMCi = mr_ERMCi
-	mean_ERMCf, rmse_ERMCf = mr_ERMCf
-	mean_ERMCp, rmse_ERMCp = mr_ERMCp
-        mean_ERMCn, rmse_ERMCn = mr_ERMCn
+	mean_ERMCb, rmse_ERMCb, abse_ERMCb = mr_ERMCb
+	mean_ERMCi, rmse_ERMCi, abse_ERMCi = mr_ERMCi
+	mean_ERMCf, rmse_ERMCf, abse_ERMCf = mr_ERMCf
+	mean_ERMCp, rmse_ERMCp, abse_ERMCp = mr_ERMCp
+        mean_ERMCn, rmse_ERMCn, abse_ERMCn = mr_ERMCn
 
         print(datestr+' RESULTS')
     
@@ -1133,6 +1164,137 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
     
     return	
     	
+def process_geps_obs(date=tate, Plot=False, filter=True, DO_CLEAN=True):
+
+    nfcst=16
+    nenss=21
+    
+    datestr=date.strftime('%Y%m%d')   
+
+    if ( not filter ): 
+        obsfile1='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.1.nc'
+        obsfile2='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.2.nc'
+        oesfile1='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GEPS_orca025_currents.1.nc'
+        oesfile2='CLASS4_currents_GEPS_UFIL/class4_'+datestr+'_GEPS_orca025_currents.2.nc'
+    elif ( filter ): 
+        obsfile1='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f1.nc'
+        obsfile2='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f2.nc'
+        oesfile1='CLASS4_currents_GEPS_FILT/class4_'+datestr+'_GEPS_orca025_currents.f1.nc'
+        oesfile2='CLASS4_currents_GEPS_FILT/class4_'+datestr+'_GEPS_orca025_currents.f2.nc'
+    OBSFILE_LIST = [obsfile1, obsfile2]
+    OESFILE_LIST = [obsfile1, obsfile2] 
+
+    FCSTV_LIST = []
+    (LONO, LATO, depth), (obser, beste, inite, fcstv, persi, nersi) = read_obsfile_plus(obsfile1)
+    nobss, nvars, ofcst, ndeps = fcstv.shape
+    fcstv = np.zeros((nobss, nvars, nfcst, nenss, ndeps))
+    fcstv = np.ma.array(fcstv)
+    
+    for obsfile in [obsfile1, obsfile2]:
+        FCSTV_LIST.append(fcstv.copy())
+
+    (LONN, LATN) = (nav_lon, nav_lat)
+    bedate=date + datetime.timedelta(days=1)
+    FCST=[]
+
+    SYS='OP'
+    tmpdir=tempdir+'/'+SYS+'/'+'O'+'/'
+    branch='operation.ensemble.prog.ens.glboce'
+    # GET FILES NEEDED FOR TOMORROWS PROCESSING
+    target=tmpdir+'/'+branch+'/'+bedate.strftime('%Y%m%d%H')+'_???_???'
+    if ( len(glob.glob(target)) < (nenss*nfcst) ): 
+        rc = get_archive.get_archive_leads(tmpdir, branch, bedate, (np.arange(0,384,24)+24).tolist(), ensnum=range(21), execute=True)  
+    for ifcst in range(nfcst):
+      jfcst=ifcst+1
+      fchour=jfcst*24
+      fcdate = bedate - datetime.timedelta(days=jfcst)
+      SYS='OP'
+      tmpdir=tempdir+'/'+SYS+'/'+'O'+'/'
+      branch='operation.ensemble.prog.ens.glboce'
+      target=tmpdir+'/'+branch+'/'+fcdate.strftime('%Y%m%d%H')+'_'+str(fchour).zfill(3)+'_???'
+      if ( len(glob.glob(target)) < nenss ): 
+          rc = get_archive.get_archive(tmpdir, branch, fcdate, fchour, ensnum=range(nenss), execute=True) 
+      LEAD=[]
+      for iensm in range(nenss):
+        # THIS SHOULD NOW BE FINDING A FILE ALREADY ON THE TMPDIR.
+        file_fcst     = find_fcst_file.find_fcst_file(SYS, fcdate, fchour, iensm, src='ocn', execute=True)
+        print('file_fcst', file_fcst, os.path.isfile(file_fcst))
+        # Read in Forecast File
+        LONS, LATS, TF = stfd.read_fstd_var(file_fcst, 'TM', typvar='P@')
+        #leu, UF = stfd.read_fstd_multi_lev(file_fcst, 'UU2W',vfreq=24, typvar='P@')
+        #lev, VF = stfd.read_fstd_multi_lev(file_fcst, 'VV2W',vfreq=24, typvar='P@')
+	if ( fcdate < date_mg1 ): 
+	    print('FIELDS NOT AVAILABLE BEFORE', date_mg1)
+	    return 99
+	newnorm=True
+	if ( fcdate < date_ic3 ): newnorm=False
+        (U15, V15) = calc_u15_from_3hr([file_fcst], vfreq=24, newnorm=newnorm)
+	if ( np.max(U15) > 20.0 ):  
+	    print("LOOKS LIKE NORMALIZATION WRONG, newnorm")
+	    newnorm=False
+	    print("USE newnorm = ", newnorm)
+	    print("DATE", fcdate)
+	    (U15, V15) = calc_u15_from_3hr([file_fcst], vfreq=24, newnorm=False)
+	if ( np.max(U15) < 0.05 ):  
+	    print("LOOKS LIKE NORMALIZATION WRONG, newnorm")
+	    newnorm=True
+	    print("USE newnorm = ", newnorm)
+	    print("DATE", fcdate)
+	    (U15, V15) = calc_u15_from_3hr([file_fcst], vfreq=24, newnorm=True)
+	[U15F, V15F] = UU_ORCA_to_NE([U15, V15])
+	
+        # this actually removes non-ocean points
+        (U15m, V15m), (LONM, LATM) = msk_flds([U15F, V15F], [LONN, LATN], mask0)
+        # now grid to lat long
+        (U15f, V15f), (LONF, LATF) = put_flds_latlon([U15m, V15m], [LONM, LATM], ddeg=0.2, method='2sweeplinear')
+	ENSM = [ [[U15F, V15F]], [[U15f, V15f]] ]
+	LEAD.append(ENSM)   ## EXTRA BRACKETS ARE HISTORICAL BAGGAGE.
+      FCST.append(LEAD)   ## INDICES:  nfcst=16, nens=21, ngrid=2, ideps=1, nflds=2
+	
+    for iobs in range(nobss):
+
+        [LONP, LATP] = LONO[iobs], LATO[iobs]
+	IJPTS = find_nearest_points((LONP, LATP), [(LONN, LATN), (LONF, LATF)])
+	IJPT, IJPF = IJPTS
+	print('IJPTS', IJPTS)
+
+        for ld, LEAD in enumerate(FCST): 
+          for ie, ENSM in enumerate(LEAD):
+	    for ig, GRID in enumerate(ENSM):
+	      IJPT = IJPTS[ig]
+	      fcstv = FCSTV_LIST[ig].copy()
+	      for kk, klev in enumerate(GRID):
+	        fcstl = []
+	        for ifld, FLD in enumerate(KLEV):
+                    FLP=FLD[IJPT]
+		    fcstl.append(FLP)
+		Upi, Vpi = fcstl   ## These are the best values for level kk
+                fcstv[iobs, 0, ld, ie, kk] = Upi
+                fcstv[iobs, 1, ld, ie, kk] = Vpi
+              FCSTV_LIST[ig] = fcstv.copy()
+
+    for	ig in range(FCSTV_LIST):
+        fcstv = FCSTV_LIST[ig].copy()
+	obsfile = OBSFILE_LIST[ig]
+	oesfile = OESFILE_LIST[ig]
+	rc = write_model_obsfile_ensemble(oesfile, obsfile, fcstv, clobber=True)
+
+    for ifcst in range(nfcst):
+      jfcst=ifcst+1
+      fchour=jfcst*24
+      fcdate = bedate - datetime.timedelta(days=jfcst)
+      SYS='OP'
+      tmpdir=tempdir+'/'+SYS+'/'+'O'+'/'
+      branch='operation.ensemble.prog.ens.glboce'
+      LEAD=[]
+      for iensm in range(nenss):
+        # THIS FILES SHOULD NO LONGER BE NEEDED
+        file_fcst     = find_fcst_file.find_fcst_file(SYS, fcdate, fchour, iensm, src='ocn', execute=False)
+	if ( os.path.isfile(file_fcst) and DO_CLEAN ):
+	    subprocess.call('rm', file_fcst)
+
+    return 0
+	
 
 def read_obsfile(obsfile):
     # READ IN OBS FILE
@@ -1257,6 +1419,28 @@ def write_model_obsfile_plus(obsfile, tplfile, (beste, inite, fcstv, persi, ners
     obsset.close()
     return
 
+def write_model_obsfile_ensembles(obsfile, tplfile, fcstv, clobber=True):
+    if ( fcstv.ndim == 5 ):
+      nobs, nvars, nfcsts, nenss, ndeps = np.shape(fcstv)
+    # ncks template file to new obsfile -- but remove forecast -- which we will need to re-create.
+    # removing all three numfcsts length variables SHOULD remove numfcst dimension as well.  [THIS MAY FAIL?]
+    # Using same module, we should be able to recreate persistence with a longer time line too.
+    if ( clobber ):
+      rc=subprocess.call(['ncks','-O','-x','-v','forecast,persistence,negative_persistence',tplfile, obsfile]) 
+
+    obsset = netCDF4.Dataset(obsfile,mode='r+')
+    nfcsts_d = obsset.createDimension('numfcsts', nfcsts)
+    nens_d = obsset.createDimension('numens', nenss)
+    fcstv_var = obsset.createVariable('forecast', np.float32,
+                                      ('numobs', 'numvars', 'numfcsts', 'numens', 'numdeps'),
+				      fill_value=obsset['best_estimate']._FillValue)
+    
+    fcstv_var.units = "m s-1"
+    fcstv_var.long_name = "Model forecast counterpart of obs. value" ;
+    fcstv_var[:] = fcstv
+    obsset.close()
+    return
+
 def test_plot_fields(date=datetime.datetime(2021,10,30),lead=24):
     file_fcst=find_fcst_file.find_fcst_file('OPD', date, lead, 0, src='ocn', execute=True)
     LONS, LATS, TF = stfd.read_fstd_var(file_fcst, 'TM', typvar='P@')
@@ -1274,38 +1458,41 @@ def write_mean_errors(out_prefix, dateint, MEAN_ERRORS, vec=['u','v'], tmp_prefi
 
     if ( isinstance(dateint, datetime.datetime) or isinstance(dateint, datetime.date) ): dateint=date.strftime("%Y%m%d")
     if ( isinstance(dateint, str) ): dateint=int(dateint)    
-    (mean_beste, rmse_beste), (mean_inite, rmse_inite), (mean_fcstv, rmse_fcstv), (mean_persi, rmse_persi), (mean_nersi, rmse_nersi) = MEAN_ERRORS
+    #(mean_beste, rmse_beste, abse_beste), (mean_inite, rmse_inite, abse_inite), (mean_fcstv, rmse_fcstv, abse_fcstv), (mean_persi, rmse_persi, abse_persi), (mean_nersi, rmse_nersi, abse_nersi) = MEAN_ERRORS
     #KEEP 15m errors
-    MEANU_ERRORS=np.concatenate((np.array([mean_beste[0,depth_index]]), np.array([mean_inite[0,depth_index]]), mean_fcstv[0,:,depth_index].flatten(), mean_persi[0,:,depth_index].flatten(), mean_nersi[0,:,depth_index].flatten()))
-    MEANV_ERRORS=np.concatenate((np.array([mean_beste[1,depth_index]]), np.array([mean_inite[1,depth_index]]), mean_fcstv[1,:,depth_index].flatten(), mean_persi[1,:,depth_index].flatten(), mean_nersi[1,:,depth_index].flatten()))
-    RMSEU_ERRORS=np.concatenate((np.array([rmse_beste[0,depth_index]]), np.array([rmse_inite[0,depth_index]]), rmse_fcstv[0,:,depth_index].flatten(), rmse_persi[0,:,depth_index].flatten(), rmse_nersi[0,:,depth_index].flatten()))
-    RMSEV_ERRORS=np.concatenate((np.array([rmse_beste[1,depth_index]]), np.array([rmse_inite[1,depth_index]]), rmse_fcstv[1,:,depth_index].flatten(), rmse_persi[1,:,depth_index].flatten(), rmse_nersi[1,:,depth_index].flatten()))
-
+    MEANU_ERRORS, MEANV_ERRORS, RMSEU_ERRORS, RMSEV_ERRORS, ABSEU_ERRORS, ABSEV_ERRORS = data_structure_errors(MEAN_ERRORS, depth_index=depth_index)
     file1=out_prefix+'_mean'+vec[0]+'.dat'
     file2=out_prefix+'_mean'+vec[1]+'.dat'   
     file3=out_prefix+'_rmse'+vec[0]+'.dat'
     file4=out_prefix+'_rmse'+vec[1]+'.dat'   
+    file5=out_prefix+'_abse'+vec[0]+'.dat'
+    file6=out_prefix+'_abse'+vec[1]+'.dat'   
     
     if ( tmp_prefix == 'NULL' ): tmp_prefix=out_prefix
     tile1=tmp_prefix+'_mean'+vec[0]+'.tmp'
     tile2=tmp_prefix+'_mean'+vec[1]+'.tmp'
     tile3=tmp_prefix+'_rmse'+vec[0]+'.tmp'
     tile4=tmp_prefix+'_rmse'+vec[1]+'.tmp'
+    tile5=tmp_prefix+'_abse'+vec[0]+'.tmp'
+    tile6=tmp_prefix+'_abse'+vec[1]+'.tmp'
      
     datadatefile.add_to_file(dateint, MEANU_ERRORS, file=file1, tmpfile=tile1)
     datadatefile.add_to_file(dateint, MEANV_ERRORS, file=file2, tmpfile=tile2)
     datadatefile.add_to_file(dateint, RMSEU_ERRORS, file=file3, tmpfile=tile3)
     datadatefile.add_to_file(dateint, RMSEV_ERRORS, file=file4, tmpfile=tile4)
+    datadatefile.add_to_file(dateint, ABSEU_ERRORS, file=file5, tmpfile=tile5)
+    datadatefile.add_to_file(dateint, ABSEV_ERRORS, file=file6, tmpfile=tile6)
     
     return
    
 psyfile='CLASS4_currents/class4_20211031_PSY4V3R1_orca12_currents.nc'
 obsfile='CLASS4_currents_CCMEP/class4_20211031_GIOPS_orca025_currents.nc'
-def write_mean_errors_from_obsfile(date, indir, insuffix, out_prefix, tmp_prefix='NULL',depth_index=1):
-    if ( isinstance(date, datetime.datetime) or isinstance(date, datetime.date) ):  datestr=date.strftime("%Y%m%d")
-    if ( isinstance(date, int) ): datestr=str(date)
-    if ( isinstance(date, str) ): datestr=date
+def write_mean_errors_from_obsfile(date, indir, insuffix, out_prefix, tmp_prefix='NULL',depth_index=1,verbose=False):
+    datestr=check_date(date)
     MEAN_ERRORS, MMEAN_ERRORS = load_mean_errors_from_obsfile(date, indir, insuffix)
+    if ( verbose ):
+	print( MEAN_ERRORS[0], MMEAN_ERRORS[0] )
+        print('MEAN_ERRORS, MMEAN_ERRORS = Class4Current.load_mean_errors_from_obsfile("'+datestr+'",'+'"'+indir+'","'+insuffix+'")')
     write_mean_errors(out_prefix, datestr,  MEAN_ERRORS, vec=['u','v'], tmp_prefix=tmp_prefix,depth_index=depth_index)
     write_mean_errors(out_prefix, datestr, MMEAN_ERRORS, vec=['s','a'], tmp_prefix=tmp_prefix,depth_index=depth_index)
     return
@@ -1315,32 +1502,80 @@ def find_date_in_obsfile(obsfile):
     date_index_final = date_index_start+8
     datestr=obsfile[date_index_start:date_index_final]
     return datestr
-    
-def write_mean_errors_from_obsfiles(dates, indir, insuffix, out_prefix, tmp_prefix='NULL', depth_index=1):
+
+def check_date(date, outtype=str):
+    if ( (outtype==str) or (outtype==int) ):
+      if ( isinstance(date, datetime.datetime) or isinstance(date, datetime.date) ):  datestr=date.strftime("%Y%m%d")
+      if ( isinstance(date, int) ): datestr=str(date)
+      if ( isinstance(date, str) ): datestr=date
+    if ( outtype ==int ): datestr=int(datestr)
+    if ( outtype== datetime.datetime ):
+      if ( isinstance(date, int) ): date=str(date)
+      if ( isinstance(date, str) and ( len(date) == 8 ) ):
+        datestr=datetime.datetime.strptime(date, '%Y%m%d')  
+      elif ( isinstance(date, str) and ( len(date) == 10 ) ):
+        datestr=datetime.datetime.strptime(date, '%Y%m%d%H')  
+      if ( isinstance(date, datetime.datetime) ): datestr=date
+      
+    return datestr
+
+def write_mean_errors_model(dates, model, IIT=4, filter=True, verbose=False):
+    if ( ( model == 'PSY' ) or ( model == 'MERCATOR' ) ):
+        indir='CLASS4_currents_CHARLY'
+	if ( filter ): 
+	    insuffix='PSY4V3R1_orca12_currents-filtr'
+	    out_prefix='ERRORS_FILT/PSY4'
+	    tmp_prefix='site4/Class4_Currents/TMP/fPSY'
+	else:
+	    insuffix='PSY4V3R1_orca12_currents'
+	    out_prefix='ERRORS_UFIL/PSY4'
+	    tmp_prefix='site4/Class4_Currents/TMP/uPSY'
+    if ( ( model == 'GIOPS' ) or ( model=='CCMEP' ) ):
+        if ( filter ):
+	    indir='CLASS4_currents_CCMEP_FILT'
+	    insuffix='GIOPS_orca025_currents.f'+str(IIT)
+	    out_prefix='ERRORS_FILT/GIOPS.'+str(IIT)
+	    tmp_prefix='site4/Class4_Currents/TMP/fGIOPS.'+str(IIT)
+	else:
+	    indir='CLASS4_currents_CCMEP_UFIL'
+	    insuffix='GIOPS_orca025_currents.'+str(IIT)
+	    out_prefix='ERRORS_UFIL/GIOPS.'+str(IIT)
+	    tmp_prefix='site4/Class4_Currents/TMP/UGIOPS.'+str(IIT)
+
+    write_mean_errors_from_obsfiles(dates, indir, insuffix, out_prefix, tmp_prefix=tmp_prefix, depth_index=0, verbose=verbose)
+    return
+    	    
+def write_mean_errors_from_obsfiles(dates, indir, insuffix, out_prefix, tmp_prefix='NULL', depth_index=1, verbose=False):
     if ( isinstance(dates, str) ):
         if ( ( dates == 'all') or (dates == 'ALL') or ( dates == 'ls' ) ):
 	    datestr='????????'
-	    obsfiles = sorted(glob.glob(indir+'/class4_'+datestr+'_'+insuffix+'.nc'))
-	    date_list = []
-	    for obsfile in obsfiles:
-		date_list.append(find_date_in_obsfile(obsfile))
+	else:
+	    datestr=dates
+	    if ( len(datestr) != 8 ):
+	        print('Warning: Date String not CCYYMMDD', datestr)
+	    if ( len(datestr) > 8):
+	        print('CRITICAL WARNING:  Date String too long.  May not glob')
+	obsfiles = sorted(glob.glob(indir+'/class4_'+datestr+'_'+insuffix+'.nc'))
+	date_list = []
+	for obsfile in obsfiles:
+	    date_list.append(find_date_in_obsfile(obsfile))
     elif ( isinstance(dates, list) ):
         date_list=dates
         obsfiles=[]
-	for datestr in dates:  
-	   obsfiles.append(indir+'/'+indir+'/class4_'+datestr+'_'+insuffix+'.nc')
+	for date in date_list:  
+	   datestr=check_date(date)
+	   obsfiles.append(indir+'/class4_'+datestr+'_'+insuffix+'.nc')
+    else:
+        date_list=[date]
 	  
     for date in date_list: 
-        write_mean_errors_from_obsfile(date, indir, insuffix, out_prefix, tmp_prefix=tmp_prefix,depth_index=depth_index)
-
+        write_mean_errors_from_obsfile(date, indir, insuffix, out_prefix, tmp_prefix=tmp_prefix,depth_index=depth_index, verbose=verbose)
     return
 
 def load_mean_errors_from_obsfile(date, indir, insuffix):
-    if ( isinstance(date, datetime.datetime) or isinstance(date, datetime.date) ):  datestr=date.strftime("%Y%m%d")
-    if ( isinstance(date, int) ): datestr=str(date)
-    if ( isinstance(date, str) ): datestr=date
+    datestr=check_date(date)
     obsfile=indir+'/class4_'+datestr+'_'+insuffix+'.nc'
-    (LONO, LATO, depth), (obser, beste, inite, fctsv, persi, nersi) = read_obsfile_plus(obsfile)
+    (LONO, LATO, depth), (obser, beste, inite, fcstv, persi, nersi) = read_obsfile_plus(obsfile)
     #nersi = persi.copy()  # nersi is actually the best estimate from the day AFTER the observation.  
                           # Not (yet?) in the observation file.
 
@@ -1359,7 +1594,7 @@ def load_mean_errors_from_obsfile(date, indir, insuffix):
     Mnersi[:,0,:,:], Mnersi[:,1,:,:] = speed_and_angle(nersi[:,0,:,:], nersi[:,1,:,:])
 
     MEAN_ERRORS = calc_mean_error(obser, (beste, inite, fcstv, persi, nersi))
-    MMEAN_ERRORS = calc_mean_error(Mobser, (Mbeste, Minite, Mfcstv, Mpersi, Mnersi))
+    MMEAN_ERRORS = calc_mean_error(Mobser, (Mbeste, Minite, Mfcstv, Mpersi, Mnersi), isangle=1)
     
     return MEAN_ERRORS, MMEAN_ERRORS
     
@@ -1393,23 +1628,27 @@ def load_mean_errors_from_obsfiles(dates, indir, insuffix):
     
 def data_structure_errors(MEAN_ERRORS, depth_index=1):
     
-    (mean_beste, rmse_beste), (mean_fcstv, rmse_fcstv), (mean_persi, rmse_persi), (mean_nersi, rmse_nersi) = MEAN_ERRORS
+    (mean_beste, rmse_beste, abse_beste), (mean_inite, rmse_inite, abse_inite), (mean_fcstv, rmse_fcstv, abse_fcstv), (mean_persi, rmse_persi, abse_persi), (mean_nersi, rmse_nersi, abse_nersi) = MEAN_ERRORS
     #KEEP 15m errors (depth_index=1)
-    MEANU_ERRORS=np.concatenate((np.array([mean_beste[0,depth_index]]), mean_fcstv[0,:,depth_index].flatten(), mean_persi[0,:,depth_index].flatten(), mean_nersi[0,:,depth_index].flatten()))
-    MEANV_ERRORS=np.concatenate((np.array([mean_beste[1,depth_index]]), mean_fcstv[1,:,depth_index].flatten(), mean_persi[1,:,depth_index].flatten(), mean_nersi[1,:,depth_index].flatten()))
-    RMSEU_ERRORS=np.concatenate((np.array([rmse_beste[0,depth_index]]), rmse_fcstv[0,:,depth_index].flatten(), rmse_persi[0,:,depth_index].flatten(), rmse_nersi[0,:,depth_index].flatten()))
-    RMSEV_ERRORS=np.concatenate((np.array([rmse_beste[1,depth_index]]), rmse_fcstv[1,:,depth_index].flatten(), rmse_persi[1,:,depth_index].flatten(), rmse_nersi[1,:,depth_index].flatten()))
+    MEANU_ERRORS=np.concatenate((np.array([mean_beste[0,depth_index]]), np.array([mean_inite[0,depth_index]]), mean_fcstv[0,:,depth_index].flatten(), mean_persi[0,:,depth_index].flatten(), mean_nersi[0,:,depth_index].flatten()))
+    MEANV_ERRORS=np.concatenate((np.array([mean_beste[1,depth_index]]), np.array([mean_inite[1,depth_index]]), mean_fcstv[1,:,depth_index].flatten(), mean_persi[1,:,depth_index].flatten(), mean_nersi[1,:,depth_index].flatten()))
+    RMSEU_ERRORS=np.concatenate((np.array([rmse_beste[0,depth_index]]), np.array([rmse_inite[0,depth_index]]), rmse_fcstv[0,:,depth_index].flatten(), rmse_persi[0,:,depth_index].flatten(), rmse_nersi[0,:,depth_index].flatten()))
+    RMSEV_ERRORS=np.concatenate((np.array([rmse_beste[1,depth_index]]), np.array([rmse_inite[1,depth_index]]), rmse_fcstv[1,:,depth_index].flatten(), rmse_persi[1,:,depth_index].flatten(), rmse_nersi[1,:,depth_index].flatten()))
+    ABSEU_ERRORS=np.concatenate((np.array([abse_beste[0,depth_index]]), np.array([abse_inite[0,depth_index]]), abse_fcstv[0,:,depth_index].flatten(), abse_persi[0,:,depth_index].flatten(), abse_nersi[0,:,depth_index].flatten()))
+    ABSEV_ERRORS=np.concatenate((np.array([abse_beste[1,depth_index]]), np.array([abse_inite[1,depth_index]]), abse_fcstv[1,:,depth_index].flatten(), abse_persi[1,:,depth_index].flatten(), abse_nersi[1,:,depth_index].flatten()))
 
-    return MEANU_ERRORS, MEANV_ERRORS, RMSEU_ERRORS, RMSEV_ERRORS
+    return MEANU_ERRORS, MEANV_ERRORS, RMSEU_ERRORS, RMSEV_ERRORS, ABSEU_ERRORS, ABSEV_ERRORS
     
 def data_structure_list_of_errors(MEAN_ERRORS_LIST, depth_index=1):
 
     MEANU_ERRORS_LIST = []
     RMSEU_ERRORS_LIST = []
+    ABSEU_ERRORS_LIST = []
     MEANV_ERRORS_LIST = []
     RMSEV_ERRORS_LIST = []
+    ABSEV_ERRORS_LIST = []
     for MEAN_ERRORS in MEAN_ERRORS_LIST:
-        MEANU_ERRORS, MEANV_ERRORS, RMSEU_ERRORS, RMSEV_ERRORS = data_structure_errors(MEAN_ERRORS, depth_index=depth_index)
+        MEANU_ERRORS, MEANV_ERRORS, RMSEU_ERRORS, RMSEV_ERRORS, ABSEU_ERRORS, ABSEV_ERRORS = data_structure_errors(MEAN_ERRORS, depth_index=depth_index)
         MEANU_ERRORS_LIST.append(MEANU_ERRORS)
         RMSEU_ERRORS_LIST.append(RMSEU_ERRORS)
         MEANV_ERRORS_LIST.append(MEANV_ERRORS)
@@ -1417,30 +1656,34 @@ def data_structure_list_of_errors(MEAN_ERRORS_LIST, depth_index=1):
 
     MEANU_ERRORS_DATA = np.transpose(np.array(MEANU_ERRORS_LIST))
     RMSEU_ERRORS_DATA = np.transpose(np.array(RMSEU_ERRORS_LIST))
+    ABSEU_ERRORS_DATA = np.transpose(np.array(ABSEU_ERRORS_LIST))
     MEANV_ERRORS_DATA = np.transpose(np.array(MEANV_ERRORS_LIST))
     RMSEV_ERRORS_DATA = np.transpose(np.array(RMSEV_ERRORS_LIST))
+    ABSEV_ERRORS_DATA = np.transpose(np.array(ABSEV_ERRORS_LIST))
    
-    return MEANU_ERRORS_DATA, RMSEU_ERRORS_DATA, MEANV_ERRORS_DATA, RMSEV_ERRORS_DATA
+    return MEANU_ERRORS_DATA, RMSEU_ERRORS_DATA, ABSEU_ERRORS_DATA, MEANV_ERRORS_DATA, RMSEV_ERRORS_DATA, ABSEV_ERRORS_DATA
 
-date_start = datetime.datetime(2019, 07, 01)
-date_final = datetime.datetime(2019, 11, 01)
+date_start = datetime.datetime(2019, 04, 01)
+date_final = datetime.datetime(2022, 03, 01)
 
+ERR_list={'best': [0,1],'init' : [1,2] ,'fcst' : [2,12], 'pers' : [12,22], 'ners' : [22,32] }
 #MEANU_ERRORS=np.concatenate((np.array([mean_beste[0,depth_index]]), mean_persi[0,:,depth_index].flatten(), mean_fcstv[0,:,depth_index].flatten(), mean_nersi[0,:,depth_index].flatten()))
-def plot_errors(EXPTS, out_prefix='PLOTS/', date_range=(date_start, date_final), ):
+def plot_errors(EXPTS, in_prefix='ERRORS', out_prefix='PLOTS/', date_range=(date_start, date_final) ):
     (date_min, date_max) = date_range
     plt.rc('font', family='serif')
     plt.rc('text', usetex=True)
     clrs = ['r','b','g']
     clls = ['m','c','y']    
-    for typerror in ['rmseu', 'rmsev', 'rmses', 'rmsea', 'meanu', 'meanv', 'means', 'meana']:
+    for typerror in ['rmseu', 'rmsev', 'rmses', 'rmsea', 'abseu', 'absev', 'abses', 'absea', 'meanu', 'meanv', 'means', 'meana']:
         tfig, taxe = plt.subplots()
         lfig, laxe = plt.subplots()
 
         for ie, EXPT in enumerate(EXPTS):
             clr = clrs[ie%3]
             cll = clls[ie%3]
-            errfile='ERRORS/'+EXPT+'_'+typerror+'.dat'
+            errfile=in_prefix+'/'+EXPT+'_'+typerror+'.dat'
             intdate, errors = datadatefile.read_file(errfile)
+	    print(len(intdate))
             dates = datadatefile.convert_strint_datelist(intdate)
     
             new_dates=[]
@@ -1453,6 +1696,7 @@ def plot_errors(EXPTS, out_prefix='PLOTS/', date_range=(date_start, date_final),
 	  
             dates = new_dates
             errors = np.transpose( np.array(new_errors) )  # np.array will flip the time, variable indices.
+	    print(len(dates))
     
             errors_list = errors.tolist()
             fcst = []
@@ -1460,33 +1704,43 @@ def plot_errors(EXPTS, out_prefix='PLOTS/', date_range=(date_start, date_final),
 	    ners = []
             for ierr, error in enumerate(errors_list):
 	        skip = False
-                if ( ierr == 0 ):  # BEST ESTIMATE
+                if   ( ierr == ERR_list['best'][0] ):  # BEST ESTIMATE
                     best=np.mean(error)
 	            lclr=clr
-                elif ( ierr < 11 ): # FORECAST
+		elif ( ierr == ERR_list['init'][0] ) :   # INIT ESTIMATE
                    lclr=clr
 	           lsty='-'
+                   init=np.mean(error)
+		   skip = True
+                elif ( ierr < ERR_list['fcst'][1] ): # FORECAST
+                   lclr=clr
+	           lsty='--'
                    fcst.append(np.mean(error))
-                elif ( ierr < 21 ): # PERSISTENCE
+		   skip = True
+		   if ( ierr == ERR_list['fcst'][0] ): skip = False
+                elif ( ierr < ERR_list['pers'][1] ): # PERSISTENCE
                     lclr=cll
                     pers.append(np.mean(error))
-	            lsty='--'	
-                elif ( ierr < 31 ): # Negative Persist
+	            lsty=':'	
+		    skip = True
+                elif ( ierr < ERR_list['ners'][1] ): # Negative Persist
                     lclr=cll
                     ners.append(np.mean(error))
-	            if ( ners[ierr-21] == pers[ierr-21] ): skip = True	
-	            lsty=':'
+		    inow=len(ners)
+	            if ( ners[inow-1] == pers[inow-1] ): skip = True	
+	            lsty='-.'
+		    skip = True
 	        if ( ierr == 0 ):
-                     taxe.plot(dates, error, color=lclr, linewidth=2, label=EXPT+' best estimate')
+                     taxe.plot(dates, error, color=lclr, linewidth=0.5, label=EXPT+' best estimate')
 	        elif ( not skip ):
-	            taxe.plot(dates, error, color=lclr, linestyle=lsty)
+	            taxe.plot(dates, error, color=lclr, linestyle=lsty, linewidth=0.5)
 
-            fcst.insert(0, best)
+            fcst.insert(0, init)
             pers.insert(0, best)
             ners.insert(0, best)
             laxe.plot(range(len(fcst)), fcst, color=clr, label=EXPT+' forecast')
             laxe.plot(range(len(pers)), pers, color=cll, linestyle='--', label=EXPT+' persistence')
-	    if ( np.mean(pers) != np.mean(ners) ):
+	    if ( ( np.mean(pers) != np.mean(ners) ) and ( not skip) ):
 	        laxe.plot(range(len(ners)), ners, color=cll, linestyle=':', label=EXPT+' negative persistence')
 
         taxe.legend()
@@ -1500,3 +1754,181 @@ def plot_errors(EXPTS, out_prefix='PLOTS/', date_range=(date_start, date_final),
     
     
     return
+
+def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/', 
+                       calculate_error=True, magnitude=False, plot_daily=True, plot_time_mean=True, 
+		       levels=np.arange(-1.0, 1.1, 0.1), ilev=0, cmap=cmap_anom_fmask):
+    date_range=[ check_date(idate,outtype=datetime.datetime) for idate in date_range]
+    date_loop = date_range[0]
+    isangle=-1
+    if ( magnitude ): isangle=1
+    error='error'
+    if ( not calculate_error ): error='value'
+    err_list = ( 'avg', 'abs', 'rms' )
+
+    datestr=date_loop.strftime('%Y%m%d')  
+    obsfile=indir+'/'+'class4_'+datestr+'_'+insuffix+'.nc'
+    (LONO, LATO, depth), (obser, beste, inite, fcstv, persi, nersi) = read_obsfile_plus(obsfile)
+    nobss, nvars, nfcst, nlevs = fcstv.shape
+    
+    grid_lon, grid_lat, lon_bin, lat_bin, grid_sum, grid_cnt = cplot.make_bin_grid(ddeg=5)
+    ERR_LIST = []
+    for err_item in err_list:
+       ERR_LIST.append( [ grid_sum.copy(), grid_cnt.copy() ])
+    ERR_VARS = [ ERR_LIST[:], ERR_LIST[:] ]
+    ERR_BEST = [ ERR_LIST[:], ERR_LIST[:] ]
+    ERR_INIT = [ ERR_LIST[:], ERR_LIST[:] ]
+    ERR_FCST = []
+    ERR_PERS = []
+    for ifcst in range(nfcst):
+        ERR_FCST.append([ ERR_LIST[:], ERR_LIST[:] ]) 
+	ERR_PERS.append([ ERR_LIST[:], ERR_LIST[:] ])
+
+    totobs=0
+    while ( date_loop <= date_range[1] ):
+        datestr=date_loop.strftime('%Y%m%d')  
+        obsfile=indir+'/'+'class4_'+datestr+'_'+insuffix+'.nc'
+	if ( os.path.isfile(obsfile) ):
+            (LONO, LATO, depth), (obser, beste, inite, fcstv, persi, nersi) = read_obsfile_plus(obsfile)
+	    nobss, __, __, __ = fcstv.shape
+	    print(datestr, nobss)
+	    totobs=totobs+nobss
+	    if ( magnitude ):  (obser, beste, inite, fcstv, persi, nersi) = speed_and_angle_list((obser, beste, inite, fcstv, persi, nersi))
+            isangle=-1
+	    if ( calculate_error ):
+	        (beste, inite, fcstv, persi, nersi) = calc_error(obser, (beste, inite, fcstv, persi, nersi), isangle=isangle)
+	
+	    if ( plot_daily ):
+	        for ivar in range(2):
+	            if ( ivar == 0 ): var='u'
+		    if ( ivar == 1 ): var='v'
+		    if ( ( ivar == 0 ) and ( magnitude ) ): var='s'
+		    if ( ( ivar == 1 ) and ( magnitude ) ): var='a'
+	            plevels=levels
+		    if ( ( magnitude ) and ( ivar == 2 ) ): plevels = np.pi * np.arange(-1.0,1.1, 0.1)
+	            FLD=beste[:,ivar,ilev]
+		    ofile=outdir+datestr+'_'+'best'+'_'+var+error+'.png'
+		    title='Init Estimate for '+datestr
+	            cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+	            FLD=inite[:,ivar,ilev]
+		    ofile=outdir+datestr+'_'+'init'+'_'+var+error+'.png'
+	            cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+		    if ( not calculate_error ):
+		        FLD=obser[:,ivar,ilev] = obser[:,ivar,ilev]
+		        ofile=outdir+datestr+'_'+'obsv'+'_'+var+error+'.png'
+		        title='Observations for '+datestr
+	                cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+		    
+		    for ifcst in range(nfcst):
+	                FLD=fcstv[:,ivar,ifcst, ilev]
+		        ofile=outdir+datestr+'_'+'fc'+str(ifcst).zfill(2)+'_'+var+error+'.png'
+		        title=str(ifcst).zfill(2)+' Forecast for '+datestr
+	                cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+	                FLD=persi[:,ivar,ifcst, ilev]
+		        ofile=outdir+datestr+'_'+'ps'+str(ifcst).zfill(2)+'_'+var+error+'.png'
+		        title=str(ifcst).zfill(2)+' Persist for '+datestr
+	                cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+
+            if ( plot_time_mean ):
+                for ivar in range(2):
+	            if ( ivar == 0 ): var='u'
+	            if ( ivar == 1 ): var='v'
+	            if ( ( ivar == 0 ) and ( magnitude ) ): var='s'
+	            if ( ( ivar == 1 ) and ( magnitude ) ): var='a'
+	            iERR_BEST = ERR_BEST[ivar]
+	            iERR_INIT = ERR_INIT[ivar]
+                    for ierr in range(len(err_list)):
+	                grid_sum, grid_cnt = iERR_BEST[ierr]
+		        FLD=beste[:, ivar, ilev]
+		        if ( err_list[ierr] == 'abs' ):  FLD=np.absolute(FLD)
+		        if ( err_list[ierr] == 'rms' ):  FLD=np.square(FLD)
+		        grid_sum_new, grid_cnt_new = cplot.binfldsumcum(LONO, LATO, FLD, lon_bin, lat_bin, grid_sum, grid_cnt)
+			print(np.sum(grid_cnt_new), np.sum(grid_cnt), len(FLD))
+		        iERR_BEST[ierr] = [grid_sum_new, grid_cnt_new]
+	                grid_sum, grid_cnt = iERR_INIT[ierr]
+		        FLD=inite[:, ivar, ilev]
+		        grid_sum_new, grid_cnt_new = cplot.binfldsumcum(LONO, LATO, FLD, lon_bin, lat_bin, grid_sum, grid_cnt)
+		        iERR_INIT[ierr] = [grid_sum_new, grid_cnt_new]
+	            ERR_BEST[ivar] = iERR_BEST
+	            ERR_INIT[ivar] = iERR_INIT
+	        for ifcst in range(nfcst):
+                    for ivar in range(2):
+	                if ( ivar == 0 ): var='u'
+	                if ( ivar == 1 ): var='v'
+	                if ( ( ivar == 0 ) and ( magnitude ) ): var='s'
+	                if ( ( ivar == 1 ) and ( magnitude ) ): var='a'
+	                iERR_FCST = ERR_FCST[ifcst][ivar]
+	                iERR_PERS = ERR_PERS[ifcst][ivar]
+                        for ierr in range(len(err_list)):
+	                    grid_sum, grid_cnt = iERR_FCST[ierr]
+		            FLD=fcstv[:, ivar, ifcst, ilev]
+		            if ( err_list[ierr] == 'abs' ):  FLD=np.absolute(FLD)
+		            if ( err_list[ierr] == 'rms' ):  FLD=np.square(FLD)
+		            grid_sum_new, grid_cnt_new = cplot.binfldsumcum(LONO, LATO, FLD, lon_bin, lat_bin, grid_sum, grid_cnt)
+		            iERR_FCST[ierr] = grid_sum_new, grid_cnt_new
+	                    grid_sum, grid_cnt = iERR_PERS[ierr]
+		            FLD=persi[:, ivar, ifcst, ilev]
+		            if ( err_list[ierr] == 'abs' ):  FLD=np.absolute(FLD)
+		            if ( err_list[ierr] == 'rms' ):  FLD=np.square(FLD)
+		            grid_sum_new, grid_cnt_new = cplot.binfldsumcum(LONO, LATO, FLD, lon_bin, lat_bin, grid_sum, grid_cnt)
+		            iERR_PERS[ierr] = grid_sum_new, grid_cnt_new
+		        ERR_FCST[ifcst][ivar] = iERR_FCST
+		        ERR_PERS[ifcst][ivar] = iERR_PERS
+
+        date_loop = date_loop + datetime.timedelta(days=1)
+	
+    if ( plot_time_mean ):          
+        datestr=date_range[0].strftime('%Y%m%d')+'_'+date_range[1].strftime('%Y%m%d')
+        for ivar in range(2):
+	    if ( ivar == 0 ): var='u'
+	    if ( ivar == 1 ): var='v'
+	    if ( ( ivar == 0 ) and ( magnitude ) ): var='s'
+	    if ( ( ivar == 1 ) and ( magnitude ) ): var='a'
+            iERR_BEST = ERR_BEST[ivar]
+	    iERR_INIT = ERR_INIT[ivar]
+	    for ierr in range(len(err_list)):
+	        if ( err_list[ierr] == 'avg' ):  error='merror'
+		if ( err_list[ierr] == 'abs' ):  error='abserr'
+		if ( err_list[ierr] == 'rms' ):  error='rmserr'
+	        grid_sum, grid_cnt = iERR_BEST[ierr]
+		if ( np.sum(grid_cnt) != totobs ):
+		    print('ERROR -- BAD OBS #:', totobs, np.sum(grid_cnt))
+	        else:
+		    print('TOTAL OBSERVATIONS #:', totobs, np.sum(grid_cnt))
+                grid_plt = cplot.binfldsumFIN(grid_sum, grid_cnt)
+		#print(err_list[ierr], np.min(grid_plt))
+		if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
+		ofile=outdir+datestr+'_'+'best'+'_'+var+error+'.png'
+                cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+	        grid_sum, grid_cnt = iERR_INIT[ierr]
+                grid_plt = cplot.binfldsumFIN(grid_sum, grid_cnt)
+		if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
+		ofile=outdir+datestr+'_'+'init'+'_'+var+error+'.png'
+                cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+        for ifcst in range(nfcst):
+	    for ivar in range(2): 
+	        if ( ivar == 0 ): var='u'
+	        if ( ivar == 1 ): var='v'
+	        if ( ( ivar == 0 ) and ( magnitude ) ): var='s'
+	        if ( ( ivar == 1 ) and ( magnitude ) ): var='a'
+                iERR_FCST = ERR_FCST[ifcst][ivar]
+	        iERR_PERS = ERR_PERS[ifcst][ivar]
+	        for ierr in range(len(err_list)):
+	            if ( err_list[ierr] == 'avg' ):  error='merror'
+		    if ( err_list[ierr] == 'abs' ):  error='abserr'
+		    if ( err_list[ierr] == 'rms' ):  error='rmserr'
+	            grid_sum, grid_cnt = iERR_FCST[ierr]
+		    #if ( np.sum(grid_cnt) != totobs ):
+		    #    print('ERROR -- BAD OBS #:', totobs, np.sum(grid_cnt))
+	            #else:
+		    #    print('TOTAL OBSERVATIONS #:', totobs, np.sum(grid_cnt))
+                    grid_plt = cplot.binfldsumFIN(grid_sum, grid_cnt)
+		    #print(ierr, err_list[ierr], np.min(grid_plt))
+		    if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
+		    ofile=outdir+datestr+'_'+'fc'+str(ifcst).zfill(2)+'_'+var+error+'.png'
+                    cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+	            grid_sum, grid_cnt = iERR_PERS[ierr]
+                    grid_plt = cplot.binfldsumFIN(grid_sum, grid_cnt)
+		    if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
+		    ofile=outdir+datestr+'_'+'ps'+str(ifcst).zfill(2)+'_'+var+error+'.png'
+                    cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)

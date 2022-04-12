@@ -22,8 +22,7 @@ ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20200801 -
 ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20201001 -f=20201031 ${PLOT} ${FILTER} 
 ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20201201 -f=20201231 ${PLOT} ${FILTER} 
 ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20210201 -f=20210228 ${PLOT} ${FILTER} 
-ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20210401 -f=20210530 ${PLOT} ${FILTER} 
-ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20210601 -f=20210630 ${PLOT} ${FILTER} 
+ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20210401 -f=20210430 ${PLOT} ${FILTER} 
 ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20210801 -f=20210831 ${PLOT} ${FILTER} 
 ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20211001 -f=20211031 ${PLOT} ${FILTER} 
 ssh eccc-ppp4 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20211201 -f=20211231 ${PLOT} ${FILTER} 

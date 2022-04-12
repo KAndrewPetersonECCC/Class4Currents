@@ -5,7 +5,7 @@ WDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 USAGE="USAGE:  date_Class4Currents.sh -s=CCYYMMDD -f=CCYYMMDD"
 
 IGNORE=False
-PLOT="--p"
+PLOT="-q"
 CHARLY=""
 FILTER="--filter"
 for i in "$@"
@@ -35,7 +35,7 @@ case $i in
     FILTER="--filter"
     shift # past argument=value
     ;;
-    --not_filter)
+    -u|--not_filter)
     FILTER="--not_filter"
     shift # past argument=value
     ;;
