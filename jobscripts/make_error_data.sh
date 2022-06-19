@@ -1,10 +1,11 @@
 #!/bin/bash
-# ord_soumet /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/date_Class4Currents.sh -cpus 1 -mpi -cm 64000M -t 10800 -shell=/bin/bash
-#bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/date_Class4Currents.sh --date=CCYYMMDD
+# ord_soumet /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/make_error_data.sh -cpus 1 -mpi -cm 64000M -t 10800 -shell=/bin/bash
+#bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/make_error_data.sh --date=CCYYMMDD
 
 USAGE="USAGE:  date_Class4Currents.sh -d=CCYYMMDD"
 
 FILTER=True
+THREE=False
 DATE="????????"
 IIT=0
 
@@ -31,6 +32,10 @@ case $i in
     FILTER=False
     shift # past argument=value
     ;;
+    -3|--three)
+    THREE=True
+    shift # past argument=value
+    ;;
     *)
     echo ${USAGE}
           # unknown option
@@ -41,8 +46,9 @@ done
 WDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 cd ${WDIR}
 
-BJOB=${WDIR}/JOBS/makeerrors.${EXPT}.${FILTER:0:1}${IIT}.sh
-PJOB=${WDIR}/JOBS/makeerrors.${EXPT}.${FILTER:0:1}${IIT}.py
+TIME=$(date +%s)
+BJOB=${WDIR}/JOBS/makeerrors.${EXPT}.${FILTER:0:1}${THREE:0:1}${IIT}.${TIME}.sh
+PJOB=${WDIR}/JOBS/makeerrors.${EXPT}.${FILTER:0:1}${THREE:0:1}${IIT}.${TIME}.py
 SJOB="ord_soumet ${BJOB} -cpus 1 -mpi -cm 16000M -t 21600 -shell=/bin/bash"
 cat > ${BJOB} << EOJ
 #!/bin/bash
@@ -66,7 +72,7 @@ import datetime
 import datadatefile
 import Class4Current
 datestr="${DATE}"
-Class4Current.write_mean_errors_model(datestr, '${EXPT}', $IIT, filter=$FILTER)
+Class4Current.write_mean_errors_model(datestr, '${EXPT}', $IIT, filter=$FILTER,three=THREE)
 EOP
 
 ${SJOB}

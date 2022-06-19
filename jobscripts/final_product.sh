@@ -1,14 +1,14 @@
 #!/bin/bash
 # ord_soumet /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product.sh -cpus 1 -mpi -cm 8000M -t 18000 -shell=/bin/bash
-#bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product.sh
+# bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product.sh
 
 WDIR=/fs/site4/eccc/mrd/rpnenv/dpe000/Class4_Currents
 HDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 
 cd ${WDIR}
 
-SDATE=2022????
-FFS=(f1)
+SDATE=20220503
+FFS=(f4)
 
 SOURCE=CLASS4_currents_CCMEP_FILT
 for FF in ${FFS[*]} ; do
@@ -17,6 +17,12 @@ for FF in ${FFS[*]} ; do
     f2) dest=FILT2 ;;
     f3) dest=FILT3 ;;
     f4) dest=FILT4 ;;
+  esac
+  case ${FF} in
+    f1) suff="-filter" ;;
+    f2) suff="-filter" ;;
+    f3) suff="-filter" ;;
+    f4) suff"=-filter" ;;
   esac
   
   DEST=CLASS4_currents_CCMEP_${dest}
@@ -27,7 +33,7 @@ for FF in ${FFS[*]} ; do
   for file in ${SOURCE}/class4_${SDATE}_GIOPS_orca025_currents.${FF}.nc ; do
       bile=$(basename ${file})
       dile=${bile/$FF/tmp}
-      eile=${dile/tmp.nc/nc}
+      eile=${dile/.tmp.nc/${suff}.nc}
       date=$(echo ${bile} | cut -c 8-15)
       echo ${date}
       

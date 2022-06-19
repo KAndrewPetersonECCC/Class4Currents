@@ -3,7 +3,7 @@ import matplotlib.colors as clr
 import cartopy.crs as ccrs
 import scipy.interpolate as si
 import scipy.stats as ss
-
+        
 import numpy as np
 import math
 
@@ -29,7 +29,7 @@ def make_projections(**kwargs):
 
 def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateCarree', outfile='plt.png', 
                box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, 
-	       cbar=True, obar='vertical', fontsizes=None, **kwargs):
+               cbar=True, obar='vertical', fontsizes=None, **kwargs):
 
     title_fontsize = fontsizes
     cbar_fontsize = fontsizes
@@ -38,9 +38,9 @@ def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='Pla
         fontsize=fontsizes
     if ( not isinstance(fontsizes, type(None)) ):
         if ( len(fontsizes) == 2 ):
-	    title_fontsize = fontsizes[0]
-	    cbar_fontsize = fontsizes[1]
-	    fontsize=fontsizes[0]
+            title_fontsize = fontsizes[0]
+            cbar_fontsize = fontsizes[1]
+            fontsize=fontsizes[0]
     #print(fontsize, title_fontsize, cbar_fontsize)
     fig = plt.figure()
     projections, pcarree = make_projections(**kwargs)
@@ -64,7 +64,7 @@ def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='Pla
     if ( cbar ): 
         #print('cbar', cbar_fontsize)
         cbar_fig=fig.colorbar(mesh, format='%.2f',orientation=obar, ticks=ticks)
-	cbar_fig.ax.tick_params(labelsize=cbar_fontsize)
+        cbar_fig.ax.tick_params(labelsize=cbar_fontsize)
     ax.coastlines()
     #print('title', title_fontsize)
     if ( suptitle != None ): fig.suptitle(suptitle, fontsize=title_fontsize)
@@ -94,9 +94,9 @@ def grdfld(lon, lat, field, ddeg=0.5, method='nearest', central_longitude=0):
     if ( method[0:6] == '2sweep' ):
         first=method[6:]
         grid_fld = si.griddata( (lon.flatten(),lat.flatten()), field.flatten(), (grid_lon, grid_lat), method='linear', fill_value=missing)
-	grid_fld2 = si.griddata( (lon.flatten(),lat.flatten()), field.flatten(), (grid_lon, grid_lat), method='nearest')
-	replace = np.where(grid_fld == missing)
-	grid_fld[replace] = grid_fld2[replace]
+        grid_fld2 = si.griddata( (lon.flatten(),lat.flatten()), field.flatten(), (grid_lon, grid_lat), method='nearest')
+        replace = np.where(grid_fld == missing)
+        grid_fld[replace] = grid_fld2[replace]
     else:
         grid_fld = si.griddata( (lon.flatten(),lat.flatten()), field.flatten(), (grid_lon, grid_lat), method=method)
     
@@ -158,11 +158,11 @@ def binfldsumFIN(grid_sum, grid_cnt):
         
 def grd_pcolormesh(lon, lat, field, levels=None, ticks=None,
                    cmap=dmap, project='PlateCarree', 
-		   outfile='plt.png', box=[-180, 180, -90, 90], 
-		   make_global=False, title='', suptitle=None, ddeg=0.5, 
-		   cbar=True, interp_method='nearest', fontsizes=None,
-		   **kwargs
-		   ):
+                   outfile='plt.png', box=[-180, 180, -90, 90], 
+                   make_global=False, title='', suptitle=None, ddeg=0.5, 
+                   cbar=True, interp_method='nearest', fontsizes=None,
+                   **kwargs
+                   ):
 
     central_longitude=0.0
     if ( ( project == 'PacificCarree' ) or ( project == 'Percator' ) ): central_longitude=180.0
@@ -173,16 +173,16 @@ def grd_pcolormesh(lon, lat, field, levels=None, ticks=None,
     
 def bin_pcolormesh(lon, lat, field, levels=None, ticks=None, 
                    cmap=dmap, project='PlateCarree', 
-		   outfile='plt.png', box=[-180, 180, -90, 90], 
-		   make_global=False, title='',  suptitle=None, ddeg=2.0, cbar=True, obar='vertical', fontsizes=None,
-		   **kwargs
-		   ):
+                   outfile='plt.png', box=[-180, 180, -90, 90], 
+                   make_global=False, title='',  suptitle=None, ddeg=2.0, cbar=True, obar='vertical', fontsizes=None,
+                   **kwargs
+                   ):
 
     grid_lon, grid_lat, grid_fld = binfld(lon, lat, field, ddeg=ddeg)
     pcolormesh(grid_lon, grid_lat, grid_fld, levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
                box=box, make_global=make_global, title=title, suptitle=suptitle, 
-	       cbar=cbar, obar=obar,fontsizes=fontsizes
-	       **kwargs)
+               cbar=cbar, obar=obar,fontsizes=fontsizes
+               **kwargs)
     return
    
 def mask_field(lon, lat, fld, mask):
@@ -194,11 +194,11 @@ def mask_field(lon, lat, fld, mask):
     
 def msk_grd_pcolormesh(lon, lat, field,  mask, levels=None, ticks=None, 
                    cmap=dmap, project='PlateCarree', 
-		   outfile='plt.png', box=[-180, 180, -90, 90], 
-		   make_global=False, title='', suptitle=None, ddeg=0.5, cbar=True, obar='vertical',
-		   addmask=False, interp_method='nearest', fontsizes=None,
-		   **kwargs
-		   ):
+                   outfile='plt.png', box=[-180, 180, -90, 90], 
+                   make_global=False, title='', suptitle=None, ddeg=0.5, cbar=True, obar='vertical',
+                   addmask=False, interp_method='nearest', fontsizes=None,
+                   **kwargs
+                   ):
 
     mask_lon, mask_lat, mask_fld = mask_field(lon, lat, field, mask)
     central_longitude=0.0
@@ -207,30 +207,30 @@ def msk_grd_pcolormesh(lon, lat, field,  mask, levels=None, ticks=None,
     grid_mlon, grid_mlat, grid_msk = grdfld(lon, lat, mask, ddeg=ddeg, method='nearest',central_longitude=central_longitude)  ## ONLY NEAREST NEIGHBOUR MAKES SENSE HERE?
     if ( not addmask ):
         pcolormesh(grid_lon, grid_lat, grid_fld, levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
-	           box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar,
-		   obar=obar, fontsizes=fontsizes, **kwargs)
+                   box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar,
+                   obar=obar, fontsizes=fontsizes, **kwargs)
     else:
         pcolormesh(grid_lon, grid_lat, np.ma.array(grid_fld, mask=np.logical_not(grid_msk)),
-	           levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
-		   box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar, 
-		   obar=obar, fontsizes=fontsizes,**kwargs)
+                   levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
+                   box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar, 
+                   obar=obar, fontsizes=fontsizes,**kwargs)
     return
     
 def msk_bin_pcolormesh(lon, lat, field, mask, levels=None, ticks=None, 
                    cmap=dmap, project='PlateCarree', 
-		   outfile='plt.png', box=[-180, 180, -90, 90], 
-		   make_global=False, title='', suptitle=None, ddeg=2.0, cbar=True, obar='vertial', fontsizes=None, **kwargs):
+                   outfile='plt.png', box=[-180, 180, -90, 90], 
+                   make_global=False, title='', suptitle=None, ddeg=2.0, cbar=True, obar='vertial', fontsizes=None, **kwargs):
 
     mask_lon, mask_lat, mask_fld = mask_field(lon, lat, field, mask)
     grid_lon, grid_lat, grid_fld = binfld(mask_lon, mask_lat, mask_fld, ddeg=ddeg)
     pcolormesh(grid_lon, grid_lat, grid_fld, levels=levels, ticks=ticks, cmap=cmap, project=project, 
                outfile=outfile, box=box, make_global=make_global, title=title, suptitle=suptitle, 
-	       cbar=cbar,obar=obar, fontsizes=fontsizes, **kwargs)
+               cbar=cbar,obar=obar, fontsizes=fontsizes, **kwargs)
     return
    
 def quiver(lon, lat, ufield, vfield, levels=None, cmap=dmap, project='PlateCarree', outfile='plt.png', 
            box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, 
-	   cbar=True, obar='vertical', Nskip=1,**kwargs):
+           cbar=True, obar='vertical', Nskip=1,**kwargs):
 
     projections,pcarree = make_projections(**kwargs)
 
@@ -265,7 +265,7 @@ def quiver(lon, lat, ufield, vfield, levels=None, cmap=dmap, project='PlateCarre
         
 def scatter(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateCarree', outfile='plt.png', 
                box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, 
-	       cbar=True, obar='vertical', fontsizes=None, **kwargs):
+               cbar=True, obar='vertical', fontsizes=None, **kwargs):
 
     title_fontsize = fontsizes
     cbar_fontsize = fontsizes
@@ -274,9 +274,9 @@ def scatter(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateC
         fontsize=fontsizes
     if ( not isinstance(fontsizes, type(None)) ):
         if ( len(fontsizes) == 2 ):
-	    title_fontsize = fontsizes[0]
-	    cbar_fontsize = fontsizes[1]
-	    fontsize=fontsizes[0]
+            title_fontsize = fontsizes[0]
+            cbar_fontsize = fontsizes[1]
+            fontsize=fontsizes[0]
     #print(fontsize, title_fontsize, cbar_fontsize)
     fig = plt.figure()
     projections, pcarree = make_projections(**kwargs)
@@ -302,7 +302,7 @@ def scatter(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateC
     if ( cbar ): 
         #print('cbar', cbar_fontsize)
         cbar_fig=fig.colorbar(scat, format='%.2f',orientation=obar, ticks=ticks)
-	cbar_fig.ax.tick_params(labelsize=cbar_fontsize)
+        cbar_fig.ax.tick_params(labelsize=cbar_fontsize)
     ax.coastlines()
     #print('title', title_fontsize)
     if ( suptitle != None ): fig.suptitle(suptitle, fontsize=title_fontsize)

@@ -16,6 +16,10 @@ case $i in
     NEXT="${i#*=}"
     shift # past argument=value
     ;;
+    -e=*|--ensemble=*)
+    ENSM="${i#*=}"
+    shift # past argument=value
+    ;;
     -s|--submit)
     SUBMIT=True
     shift # past argument=value
@@ -44,13 +48,18 @@ if [[ ${#DATE} -ne 8 ]] ; then
   echo "NEED DATE CCYYMMDD"
   exit 99
 fi
+if [[ -z ${ENSM} ]] ; then
+    echo "NEED ENSM"
+    echo ${USAGE}
+    exit 99 
+fi
 
 WDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 cd ${WDIR}
 
-BJOB=${WDIR}/JOBS/GEPS_Class4Currents.${DATE}.${CHARLY:0:1}${FILTER:0:1}.sh
-NJOB=${WDIR}/JOBS/GEPS_Class4Currents.${NEXT}.${CHARLY:0:1}${FILTER:0:1}.sh
-PJOB=${WDIR}/JOBS/GEPS_Class4Currents.${DATE}.${CHARLY:0:1}${FILTER:0:1}.py
+BJOB=${WDIR}/JOBS/GEPS_Class4Currents.${DATE}.${ENSM}.${FILTER:0:1}.sh
+NJOB=${WDIR}/JOBS/GEPS_Class4Currents.${NEXT}.${ENSM}.${FILTER:0:1}.sh
+PJOB=${WDIR}/JOBS/GEPS_Class4Currents.${DATE}.${ENSM}.${FILTER:0:1}.py
 SJOB="ord_soumet ${BJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 CJOB="ord_soumet ${NJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 
@@ -85,14 +94,23 @@ import datetime
 import datadatefile
 import Class4Current
 datestr="${DATE}"
-datefile='DATES/todo.date'
 date=datadatefile.convert_strint_date(datestr)
-print("PROCESSING DATE", datestr, date)
-try:
-    Class4Current.process_geps_obs(date=date, filter=${FILTER})
-except:
-    print(traceback.format_exc())
-    sys.stdout.flush()
+if not ( '${ENSM}' == 'A' ):
+    ens_list=[${ENSM}]
+    print("PROCESSING DATE", datestr, date, ens_list)
+    try:
+        Class4Current.process_geps_obs(date=date, ens_list=ens_list, filter=${FILTER})
+    except:
+        print(traceback.format_exc())
+        sys.stdout.flush()
+else:
+    print("ASSEMBLING DATE", datestr, date)
+    try:
+        # NEED TO ADD NON FILTER OPTIONS.
+        Class4Current.assemble_ensemble_date(date, obspre='CLASS4_currents_GEPS_FILT/class4', obssuf='GEPS_orca025_currents', iters=['f1','f2'], nens=21, clobber=True)
+    except:
+        print(traceback.format_exc())
+        sys.stdout.flush()
 EOP
 
 if [[ ${SUBMIT} == True ]] ; then 
