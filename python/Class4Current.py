@@ -109,7 +109,7 @@ def calc_u15_from_3hr(file_3hrs, vfreq=3, newnorm=True):   ## ALSO SHOULD WORK F
         V15D = 2.0*V20 - V10
     else:
         U15D = ( U20 - U10 ) / 10.0
-        V15D = ( V20 - V20 ) / 10.0
+        V15D = ( V20 - V10 ) / 10.0
     return U15D, V15D
     
 def calc_u00_from_3hr(file_3hrs, depth):
