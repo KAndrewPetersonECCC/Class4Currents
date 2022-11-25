@@ -26,7 +26,7 @@ def convert_date_strint(date):
     return date_str, date_int
     
 def convert_strint_datelist(dates_str):
-    if ( ( isinstance(dates_str, str) ) or ( isinstance(dates_str, int) ) ):
+    if ( ( isinstance(dates_str, str) ) or ( isinstance(dates_str, int) ) or ( isinstance(dates_str, np.int64) ) ):
        date = convert_strint_date(dates_str) 
        return date
     dates = []
@@ -37,8 +37,10 @@ def convert_strint_datelist(dates_str):
 
 def convert_strint_date(date_str):
     if ( isinstance(date_str, int) ):
-        date=convert_strint_date(str(date_str))
-    elif ( isinstance(date_str, str) and ( len(date_str) == 8 ) ):
+        date_str=str(date_str)
+    if ( isinstance(date_str, np.int64) ):
+        date_str=str(date_str)
+    if ( isinstance(date_str, str) and ( len(date_str) == 8 ) ):
         date=datetime.datetime.strptime(date_str, '%Y%m%d')  
     elif ( isinstance(date_str, str) and ( len(date_str) == 10 ) ):
         date=datetime.datetime.strptime(date_str, '%Y%m%d%H')  
@@ -54,7 +56,7 @@ def convert_strint_date(date_str):
     
 def read_file(file='datafile.dat'):
     if ( not os.path.isfile(file) ):
-        print 'File does not exist, ', file
+        print('File does not exist, ', file)
         return [], []
     try:
         alldata = np.loadtxt(file, unpack=True) 
@@ -74,7 +76,7 @@ def read_file(file='datafile.dat'):
     
 def read_date_and_boolean(file='datafile.dat'):
     if ( not os.path.isfile(file) ):
-        print 'File does not exist, ', file
+        print('File does not exist, ', file)
         return [], []
     try:
         alldata = np.loadtxt(file, unpack=True) 
@@ -155,7 +157,7 @@ def write_integer_to_file(n, file='datafile.dat'):
 
 def read_integer_from_file(file='datafile.dat'):
     if ( not os.path.isfile(file) ):
-        print 'File does not exist, ', file
+        print('File does not exist, ', file)
         return []
     f = open(file, 'r')
     n=int(f.read(3))
@@ -172,7 +174,7 @@ def write_intlist_to_file(int_list, file='datafile.dat'):
 
 def read_intlist_from_file(n_len, file='datafile.dat'):
     if ( not os.path.isfile(file) ):
-        print 'File does not exist, ', file
+        print('File does not exist, ', file)
         int_list=[]
         for i in range(n_len):
             int_list.append(0)
@@ -214,7 +216,7 @@ def add_to_file(date, data, file='datafile.dat', tmpfile='Null'):
         else:
             dates=np.append(dates, date)
             datas=np.append(datas, np.reshape(data, (nv,1)), axis=1)
-    #print 'SHAPE', datas.shape
+    #print('SHAPE', datas.shape)
     if ( dates.size > 1 ):
         isort = np.argsort(dates)
         dates = dates[isort]
@@ -258,7 +260,7 @@ def add_to_boolean_file(date, TorF, file='datafile.dat', tmpfile='Null'):
         else:
             dates=np.append(dates, date)
             boole=np.append(boole, np.reshape(TorF, (nv,1)), axis=1)
-    #print 'SHAPE', datas.shape
+    #print('SHAPE', datas.shape)
     if ( dates.size > 1 ):
         isort = np.argsort(dates)
         dates = dates[isort]
@@ -285,8 +287,8 @@ def missing_from_file(file='datafile.dat', date_range=[datetime.datetime(2019,5,
     dates, datas = read_file(file)
     missing = []
     if ( not isinstance(dates, np.ndarray ) ):
-        print 'File is empty or does not exist'
-        print os.path.isfile(file)
+        print('File is empty or does not exist')
+        print(os.path.isfile(file))
         return missing
      
     this_date = date_range[0]
@@ -296,7 +298,7 @@ def missing_from_file(file='datafile.dat', date_range=[datetime.datetime(2019,5,
         date_str = this_date.strftime("%Y%m%d%H")
         date_int = int(date_str)
         if (date_int not in dates):
-            #print date_int
+            #print(date_int)
             missing.append(date_int)
         this_date = this_date + datetime.timedelta(days=1) 
 

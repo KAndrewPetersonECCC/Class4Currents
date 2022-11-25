@@ -1,5 +1,5 @@
 #!/bin/bash
-#bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/GEPSdate_Class4Currents.sh --date=CCYYMMDD
+#bash /fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/GEPSdate_Class4Currents.sh --date=CCYYMMDD
 
 USAGE="USAGE:  GEPSdate_Class4Currents.sh -d=CCYYMMDD"
 
@@ -54,7 +54,7 @@ if [[ -z ${ENSM} ]] ; then
     exit 99 
 fi
 
-WDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
+WDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 cd ${WDIR}
 
 BJOB=${WDIR}/JOBS/GEPS_Class4Currents.${DATE}.${ENSM}.${FILTER:0:1}.sh
@@ -68,8 +68,10 @@ cat > ${BJOB} << EOJ
 ####${SJOB}
 echo "STARTING JOB for DATE ${DATE}"
 cd ${WDIR}
-source jobscripts/preconda.sh
-source activate metcarto
+## Adding NCO operations
+. ssmuse-sh -d eccc/cmd/cmds/ext/20220331
+## Adding RPNPY
+source jobscripts/prepython.sh
 python ${PJOB}
 echo "FINISHED JOB for DATE ${DATE}"
 EOJ

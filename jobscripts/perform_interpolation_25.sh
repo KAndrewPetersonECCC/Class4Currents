@@ -2,7 +2,7 @@
 # ord_soumet /home/dpe000/Class4_Currents/jobscripts/perform_interpolation.sh -cpus 1 -mpi -cm 64000M -t 3600 -shell=/bin/bash
 
 GRID_DIR=/fs/site6/eccc/mrd/rpnenv/dpe000/GDPS/gdps_Class4
-REFERENCE=${GRID_DIR}/dest_grid.std.2
+REFERENCE=${GRID_DIR}/dest_grid.std.25
 
 for i in "$@"
 do

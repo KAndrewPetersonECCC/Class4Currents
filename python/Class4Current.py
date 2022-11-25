@@ -1,7 +1,8 @@
 import os
 import sys
 sys.path.insert(0, '/home/dpe000/Class4_Currents/python')
-        
+#from importlib import reload
+       
 import netCDF4
 import shutil 
 import numpy as np
@@ -16,7 +17,7 @@ import get_archive
 import stfd
 import read_grid
 import isoheatcontent
-import bering_diurnal
+import find_value_at_point
 import cplot
 import find_hall
 import datadatefile
@@ -45,9 +46,9 @@ obsfile='CLASS4_currents_CCMEP_FILT/class4_20190101_GIOPS_orca025_currents.nc'
 psyffile='CLASS4_currents_CHARLY_MARCH/class4_20190101_PSY4V3R1_orca12_currents-filtr.nc'
 obsffile='CLASS4_currents_CCMEP_FILT/class4_20190101_GIOPS_orca025_currents-filtr.nc'
 
-file_best = '/fs/site4/eccc/mrd/rpnenv/dpe000//tmpdir/gu/ORCA025-CMC-ANAL_1d_grid_T_2021110100.nc'
-file_besu = '/fs/site4/eccc/mrd/rpnenv/dpe000//tmpdir/gu/ORCA025-CMC-ANAL_1d_grid_U_2021110100.nc'
-file_besv = '/fs/site4/eccc/mrd/rpnenv/dpe000//tmpdir/gu/ORCA025-CMC-ANAL_1d_grid_V_2021110100.nc'
+file_best = '/fs/site6/eccc/mrd/rpnenv/dpe000//tmpdir/gu/ORCA025-CMC-ANAL_1d_grid_T_2021110100.nc'
+file_besu = '/fs/site6/eccc/mrd/rpnenv/dpe000//tmpdir/gu/ORCA025-CMC-ANAL_1d_grid_U_2021110100.nc'
+file_besv = '/fs/site6/eccc/mrd/rpnenv/dpe000//tmpdir/gu/ORCA025-CMC-ANAL_1d_grid_V_2021110100.nc'
 file_fcts = ' tmpdir value'
 
 site=find_hall.get_site()
@@ -62,7 +63,7 @@ date_mg1 = datetime.datetime(2020,1,21,12)
 
 def UU_ORCA_to_NE(UV):
     hall=find_hall.find_hall()
-    fila='/space/'+hall+'/sitestore/eccc/mrd/rpnenv/socn000/env_ubuntu-18.04-skylake-64/datafiles/constants/oce/repository/master/CONCEPTS/orca025/grids/orca025grid_new.std'
+    fila='/space/'+hall+'/sitestore/eccc/mrd/rpnenv/socn000/env_rhel-8-icelake-64/datafiles/constants/oce/repository/master/CONCEPTS/orca025/grids/orca025grid_new.std'
     LONA, LATA, TH = stfd.read_fstd_var(fila, 'LAAN')
     UO, VO = UV
     UE = UO * np.cos(TH) - VO * np.sin(TH)
@@ -175,7 +176,7 @@ def find_obs_value(FD_LIST, NEMO_LONLAT, OBS_LONLAT):
     LONPT, LATPT = OBS_LONLAT
     LONN,  LATN  = NEMO_LONLAT
 
-    ipt, jpt = bering_diurnal.find_nearest_point(LONPT, LATPT, LONN, LATN)
+    ipt, jpt = find_value_at_point.find_nearest_point(LONPT, LATPT, LONN, LATN)
     
     FDpt = []
     FDpi = []
@@ -186,7 +187,7 @@ def find_obs_value(FD_LIST, NEMO_LONLAT, OBS_LONLAT):
           FDpt.append(FDN[ipt])
         else:
           FDpt.append(FDN[ipt, jpt])
-        FDpi.append(bering_diurnal.interpolate_to_point(FDN, LONN, LATN, LONPT, LATPT))
+        FDpi.append(find_value_at_point.interpolate_to_point(FDN, LONN, LATN, LONPT, LATPT))
     print('POINT VALUES', FDpt, FDpi)
     return FDpt, FDpi
 
@@ -195,7 +196,7 @@ def find_nearest_points(LONLATPT, LONLAT_LIST):
     IJPTS=[]
     for LONLATin in LONLAT_LIST:
         LONin, LATin = LONLATin
-        ipto, jpto = bering_diurnal.find_nearest_point(LONPT, LATPT, LONin, LATin)
+        ipto, jpto = find_value_at_point.find_nearest_point(LONPT, LATPT, LONin, LATin)
         IJPTS.append((ipto,jpto))
     return IJPTS
 
@@ -294,9 +295,9 @@ def map_to_A_grid(FLD, LON, LAT, grid='T'):
     
     return np.squeeze(FLDN), LONN, LATN
 
-grid_dir='/fs/site4/eccc/mrd/rpnenv/dpe000/GDPS/gdps_Class4/'
-script_dir='/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/'
-template_dir='/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/templates/'
+grid_dir='/fs/site6/eccc/mrd/rpnenv/dpe000/GDPS/gdps_Class4/'
+script_dir='/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/'
+template_dir='/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/templates/'
 grid_ref='dest_grid.std.2'
 
 def cst_interpolation(source_file, destination_file, ref_grid=grid_dir+grid_ref):
@@ -530,8 +531,8 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
             outpre='ERRORS_FILT/PSY4'
             tmppre='fPSY4'
 
-        write_mean_errors(outpre, int(datestr),  MERCATOR_MEAN_ERRORS, vec=['u','v'], tmp_prefix='site4/Class4_Currents/TMP/'+tmppre, depth_index=outdep)
-        write_mean_errors(outpre, int(datestr), MERCATOR_MMEAN_ERRORS, vec=['s','a'], tmp_prefix='site4/Class4_Currents/TMP/'+tmppre, depth_index=outdep)
+        write_mean_errors(outpre, int(datestr),  MERCATOR_MEAN_ERRORS, vec=['u','v'], tmp_prefix='site6/Class4_Currents/TMP/'+tmppre, depth_index=outdep)
+        write_mean_errors(outpre, int(datestr), MERCATOR_MMEAN_ERRORS, vec=['s','a'], tmp_prefix='site6/Class4_Currents/TMP/'+tmppre, depth_index=outdep)
         #nobss, nvars, nfcst, ndeps = fcstv.shape
     timen=time.time()
     timep=timen-time0
@@ -707,9 +708,9 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
         
         print( 'Persistence files', fcdate, andate)
         print( 'Nersistence files', npdate, nndate)
-	if ( not nPersist ): 
-	    npdate=fcdate
-	    nndate=andate
+        if ( not nPersist ): 
+            npdate=fcdate
+            nndate=andate
             print( 'Nersistence files', npdate, nndate)
 
         CHOOSE='best'
@@ -732,11 +733,11 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
             file_besv, __ = find_fcst_file.find_anal_file(andate, system=GD, anal=anal, var='V',execute=True)
             GD='gd'
             if ( nndate <= date_ic2 - datetime.timedelta(days=7) ):  GD='pd'
-	    if ( nndate == andate ):
-		file_nest = file_best
-		file_nesu = file_besu
-		file_nesv = file_besv
-	    else:
+            if ( nndate == andate ):
+                file_nest = file_best
+                file_nesu = file_besu
+                file_nesv = file_besv
+            else:
                 file_nest, __ = find_fcst_file.find_anal_file(nndate, system=GD, anal=nnal, var='T',execute=True)
                 file_nesu, __ = find_fcst_file.find_anal_file(nndate, system=GD, anal=nnal, var='U',execute=True)
                 file_nesv, __ = find_fcst_file.find_anal_file(nndate, system=GD, anal=nnal, var='V',execute=True)
@@ -1172,8 +1173,8 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
                 outpre='ERRORS_FILT/GIOPS'
                 tmppre='fGIOPS'
 
-            write_mean_errors(outpre+add, int(datestr),  CCMEP_MEAN_ERRORS, vec=['u','v'], tmp_prefix='site4/Class4_Currents/TMP/'+tmppre+add, depth_index=outdep)
-            write_mean_errors(outpre+add, int(datestr), CCMEP_MMEAN_ERRORS, vec=['s','a'], tmp_prefix='site4/Class4_Currents/TMP/'+tmppre+add, depth_index=outdep)
+            write_mean_errors(outpre+add, int(datestr),  CCMEP_MEAN_ERRORS, vec=['u','v'], tmp_prefix='site6/Class4_Currents/TMP/'+tmppre+add, depth_index=outdep)
+            write_mean_errors(outpre+add, int(datestr), CCMEP_MMEAN_ERRORS, vec=['s','a'], tmp_prefix='site6/Class4_Currents/TMP/'+tmppre+add, depth_index=outdep)
     
     return        
 
@@ -1193,7 +1194,7 @@ def get_geps_files(date):
         fcdate = bedate - datetime.timedelta(days=jfcst)
         target=tmpdir+'/'+branch+'/'+fcdate.strftime('%Y%m%d%H')+'_'+str(fchour).zfill(3)+'_???'
         if ( len(glob.glob(target)) < nenss ): 
-            rc = get_archive.get_archive(tmpdir, branch, fcdate, fchour, ensnum=range(nenss), execute=True) 
+            rc = get_archive.get_archive(tmpdir, branch, fcdate, fchour, ensnum=list(range(nenss)), execute=True) 
         for iensm in ens_list:
             # THIS SHOULD NOW BE FINDING A FILE ALREADY ON THE TMPDIR.
             file_fcst     = find_fcst_file.find_fcst_file(SYS, fcdate, fchour, iensm, src='ocn', execute=False)
@@ -1245,7 +1246,7 @@ def process_geps_obs(date=tate, ens_list=[0], Plot=False, filter=True, DO_CLEAN=
     target=tmpdir+'/'+branch+'/'+bedate.strftime('%Y%m%d%H')+'_???_???'
     if ( ens_list[0] == 0 ):
       if ( len(glob.glob(target)) < (nenss*nfcst) ): 
-        rc = get_archive.get_archive_leads(tmpdir, branch, bedate, (np.arange(0,384,24)+24).tolist(), ensnum=range(21), execute=True)  
+        rc = get_archive.get_archive_leads(tmpdir, branch, bedate, (np.arange(0,384,24)+24).tolist(), ensnum=list(range(21)), execute=True)  
     timea = time.time() - time0a
     print("DEARCHIVING TIME ", bedate, timea)
 
@@ -1605,11 +1606,11 @@ def assemble_ensemble_date(date, obspre='CLASS4_currents_GEPS_FILT/class4', obss
     datestr=check_date(date)
     for itstr in iters:
         obsfile=obspre+'_'+datestr+'_'+obssuf+'.'+itstr+'.nc'
-	print(obsfile)
-	tplfile=obsfile.replace('nc','000.nc')
-	cat_obsfile_ensemble(obsfile, tplfile, nens=nens, clobber=clobber)
+        print(obsfile)
+        tplfile=obsfile.replace('nc','000.nc')
+        cat_obsfile_ensemble(obsfile, tplfile, nens=nens, clobber=clobber)
     
-def write_model_obsfile_ensemble(obsfile, tplfile, fcstv, clobber=True):
+def write_model_obsfile_ensemble(obsfile, tplfile, fcstv, clobber=True, fullpath='/fs/site6/eccc/mrd/rpnenv/dpe000/Class4_Currents'):
     #print('fcstv SHAPE', np.shape(fcstv))
     if ( fcstv.ndim == 5 ):
       nobs, nvars, nfcsts, nenss, ndeps = np.shape(fcstv)
@@ -1618,8 +1619,14 @@ def write_model_obsfile_ensemble(obsfile, tplfile, fcstv, clobber=True):
     # ncks template file to new obsfile -- but remove forecast -- which we will need to re-create.
     # removing all three numfcsts length variables SHOULD remove numfcst dimension as well.  [THIS MAY FAIL?]
     # Using same module, we should be able to recreate persistence with a longer time line too.
+    # Fullpath added for use with ssh.  Not needed for local host execution.
     if ( clobber ):
-      rc=subprocess.call(['ncks','-O','-x','-v','forecast,persistence,negative_persistence',tplfile, obsfile]) 
+      rc=subprocess.call(['ncks','-O','-x','-v','forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+      print('Job RC = ', rc)
+      #rc=subprocess.Popen(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+      #print('Job RC = ', rc.returncode)
+      #print(rc.stdout.read(), rc.stderr.read())
+      #print(''.join(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile]))
 
     obsset = netCDF4.Dataset(obsfile,mode='r+')
     nfcsts_d = obsset.createDimension('numfcsts', nfcsts)
@@ -1703,8 +1710,8 @@ def write_3mean_errors_from_obsfile(date, indir, insuffix, out_prefix, tmp_prefi
         print('MEAN_ERRORS_LIST, MMEAN_ERRORS_LIST = Class4Current.load_3mean_errors_from_obsfile("'+datestr+'",'+'"'+indir+'","'+insuffix+'")')
     for ierr, MEAN_ERRORS in enumerate(MEAN_ERRORS_LIST):
         if ( ierr == 0 ): add='uncorr'
-	if ( ierr == 1 ): add='stokes'
-	if ( ierr == 2 ): add='stides'
+        if ( ierr == 1 ): add='stokes'
+        if ( ierr == 2 ): add='stides'
         write_mean_errors(out_prefix+'_'+add, datestr,  MEAN_ERRORS_LIST[ierr], vec=['u','v'], tmp_prefix=tmp_prefix+'_'+add,depth_index=depth_index)
         write_mean_errors(out_prefix+'_'+add, datestr, MMEAN_ERRORS_LIST[ierr], vec=['s','a'], tmp_prefix=tmp_prefix+'_'+add,depth_index=depth_index)
     return
@@ -1737,33 +1744,33 @@ def write_mean_errors_model(dates, model, IIT=4, filter=True, verbose=False, Thr
         if ( filter ): 
             insuffix='PSY4V3R1_orca12_currents-filtr'
             out_prefix='ERRORS_FILT/PSY4'
-            tmp_prefix='site4/Class4_Currents/TMP/fPSY'
+            tmp_prefix='site6/Class4_Currents/TMP/fPSY'
         else:
             insuffix='PSY4V3R1_orca12_currents'
             out_prefix='ERRORS_UFIL/PSY4'
-            tmp_prefix='site4/Class4_Currents/TMP/uPSY'
+            tmp_prefix='site6/Class4_Currents/TMP/uPSY'
     if ( ( model == 'GIOPS' ) or ( model=='CCMEP' ) ):
         if ( filter ):
             indir='CLASS4_currents_CCMEP_FILT'
             insuffix='GIOPS_orca025_currents.f'+str(IIT)
             out_prefix='ERRORS_FILT/GIOPS.'+str(IIT)
-            tmp_prefix='site4/Class4_Currents/TMP/fGIOPS.'+str(IIT)
+            tmp_prefix='site6/Class4_Currents/TMP/fGIOPS.'+str(IIT)
         else:
             indir='CLASS4_currents_CCMEP_UFIL'
             insuffix='GIOPS_orca025_currents.'+str(IIT)
             out_prefix='ERRORS_UFIL/GIOPS.'+str(IIT)
-            tmp_prefix='site4/Class4_Currents/TMP/uGIOPS.'+str(IIT)
+            tmp_prefix='site6/Class4_Currents/TMP/uGIOPS.'+str(IIT)
     if ( ( model == 'GEPS' ) or ( model=='ENSEMBLE' ) ):
         if ( filter ):
             indir='CLASS4_currents_GEPS_FILT'
             insuffix='GEPS_orca025_currents.f'+str(IIT)+'.enm'
             out_prefix='ERRORS_FILT/GEPS.'+str(IIT)
-            tmp_prefix='site4/Class4_Currents/TMP/fGEPS.'+str(IIT)
+            tmp_prefix='site6/Class4_Currents/TMP/fGEPS.'+str(IIT)
         else:
             indir='CLASS4_currents_GEPS_UFIL'
             insuffix='GEPS_orca025_currents.'+str(IIT)+'.enm'
             out_prefix='ERRORS_UFIL/GEPS.'+str(IIT)
-            tmp_prefix='site4/Class4_Currents/TMP/uGEPS.'+str(IIT)
+            tmp_prefix='site6/Class4_Currents/TMP/uGEPS.'+str(IIT)
 
     write_mean_errors_from_obsfiles(dates, indir, insuffix, out_prefix, tmp_prefix=tmp_prefix, depth_index=0, verbose=verbose, Three=Three)
     return
@@ -1835,19 +1842,19 @@ def load_3mean_errors_from_obsfile(date, indir, insuffix):
     MMEAN_ERRORS_LIST = []    
     for ierror in range(3):
         if ( ierror == 0 ):
-	   pass # non adjustment of velocity
-	if ( ierror == 1 ):  # add 0.55 * stokes drift
-	    beste = beste + 0.55*stokv
-	    inite = inite + 0.55*stokv
-	    for ifcst in range(numfcsts):
-	        fcstv[:,:,ifcst,:] = fcstv[:,:,ifcst,:] + 0.55*stokv
-		persi[:,:,ifcst,:] = persi[:,:,ifcst,:] + 0.55*stokv
-	if ( ierror == 2 ):  # add tides
-	    beste = beste + tidev
-	    inite = inite + tidev
-	    for ifcst in range(numfcsts):
-	        fcstv[:,:,ifcst,:] = fcstv[:,:,ifcst,:] + tidev
-		persi[:,:,ifcst,:] = persi[:,:,ifcst,:] + tidev
+           pass # non adjustment of velocity
+        if ( ierror == 1 ):  # add 0.55 * stokes drift
+            beste = beste + 0.55*stokv
+            inite = inite + 0.55*stokv
+            for ifcst in range(numfcsts):
+                fcstv[:,:,ifcst,:] = fcstv[:,:,ifcst,:] + 0.55*stokv
+                persi[:,:,ifcst,:] = persi[:,:,ifcst,:] + 0.55*stokv
+        if ( ierror == 2 ):  # add tides
+            beste = beste + tidev
+            inite = inite + tidev
+            for ifcst in range(numfcsts):
+                fcstv[:,:,ifcst,:] = fcstv[:,:,ifcst,:] + tidev
+                persi[:,:,ifcst,:] = persi[:,:,ifcst,:] + tidev
     
         Mobser = 0.0*obser.copy()
         Mbeste = 0.0*beste.copy()
@@ -1863,9 +1870,9 @@ def load_3mean_errors_from_obsfile(date, indir, insuffix):
 
         MEAN_ERRORS = calc_mean_error(obser, (beste, inite, fcstv, persi))
         MMEAN_ERRORS = calc_mean_error(Mobser, (Mbeste, Minite, Mfcstv, Mpersi), isangle=1)
-	
-	MEAN_ERRORS_LIST.append(MEAN_ERRORS)
-	MMEAN_ERRORS_LIST.append(MMEAN_ERRORS)
+        
+        MEAN_ERRORS_LIST.append(MEAN_ERRORS)
+        MMEAN_ERRORS_LIST.append(MMEAN_ERRORS)
     
     return MEAN_ERRORS_LIST, MMEAN_ERRORS_LIST
 
@@ -1921,7 +1928,7 @@ def load_3mean_errors_from_obsfiles(dates, indir, insuffix):
             print('load from obsfile failed', date)
         else:
             dates_good.append(date)
-	    for ierr in range(3):
+            for ierr in range(3):
               SUPER_MEAN_ERRORS_LIST[ierr].append(MEAN_ERRORS[ierr])
               SUPER_MMEAN_ERRORS_LIST[ierr].append(MMEAN_ERRORS[ierr])
     return dates_good, SUPER_MEAN_ERRORS_LIST, SUPER_MMEAN_ERRORS_LIST
@@ -1990,11 +1997,11 @@ def plot_errors(EXPTS, LABELS=None, in_prefix='ERRORS', out_prefix='PLOTS/', dat
         lfig, laxe = plt.subplots()
 
         for ie, EXPT in enumerate(EXPTS):
-	    LABE=LABELS[ie]
+            LABE=LABELS[ie]
             clr = clrs[ie%3]
             cll = clls[ie%3]
             errfile=in_prefix+'/'+EXPT+'_'+typerror+'.dat'
-	    print(errfile)
+            print(errfile)
             intdate, errors = datadatefile.read_file(errfile)
             print(len(intdate))
             dates = datadatefile.convert_strint_datelist(intdate)

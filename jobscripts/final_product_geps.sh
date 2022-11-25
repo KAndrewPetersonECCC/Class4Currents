@@ -1,13 +1,16 @@
 #!/bin/bash
-# ord_soumet /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product_geps.sh -cpus 1 -mpi -cm 8000M -t 18000 -shell=/bin/bash
-# bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product_geps.sh
+# ord_soumet /fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product_geps.sh -cpus 1 -mpi -cm 8000M -t 18000 -shell=/bin/bash
+# bash /fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product_geps.sh
 
-WDIR=/fs/site4/eccc/mrd/rpnenv/dpe000/Class4_Currents
-HDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
+WDIR=/fs/site6/eccc/mrd/rpnenv/dpe000/Class4_Currents
+HDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
+
+## Adding NCO operations
+. ssmuse-sh -d eccc/cmd/cmds/ext/20220331
 
 cd ${WDIR}
 
-SDATE=2022????
+SDATE=20200[345]??
 FFS=(f2)
 
 SOURCE=CLASS4_currents_GEPS_FILT
@@ -50,6 +53,7 @@ for FF in ${FFS[*]} ; do
       ncatted -O  -a long_name,forecast,m,c,"Model ensemble member forecast counterpart of obs. value" ${DEST}/${dile}
       ncks -O ${DEST}/${dile} -o ${DEST}/${eile}
       ncatted -O -h -a history,global,d,, ${DEST}/${eile}
+	  gzip ${DEST}/${eile}
       rm ${DEST}/${dile}
 
       ncks -O ${SOURCE}/${mile} -o ${DEST}/${nile}
@@ -60,6 +64,7 @@ for FF in ${FFS[*]} ; do
       ncatted -O  -a long_name,forecast,m,c,"Model ensemble mean forecast counterpart of obs. value" ${DEST}/${nile}
       ncks -O ${DEST}/${nile} -o ${DEST}/${oile}
       ncatted -O -h -a history,global,d,, ${DEST}/${oile}
+	  gzip ${DEST}/${oile}
       rm ${DEST}/${nile}
    done
 done
