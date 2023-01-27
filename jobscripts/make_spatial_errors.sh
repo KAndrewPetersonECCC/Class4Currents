@@ -86,6 +86,11 @@ datestart=Class4Current.check_date(datestart_str, outtype=datetime.datetime)
 datefinal=Class4Current.check_date(datefinal_str, outtype=datetime.datetime)
 daterange=[datestart, datefinal]
 
+dates_list = Class4Current.create_dates(20210101, 20210105)
+indir='CLASS4_currents_CCMEP_FILT2'
+insuffix='GIOPS_orca025_currents-filter'
+(lon_grid, lat_grid),  (grd_beste, grd_inite, grd_fcstv, grd_persi) = Class4Current.bin_over_dates_3errors(indir, insuffix, dates_list, ierror=0)
+
 expt='${EXPT}'
 filter=${FILTER}
 speed=${SPEEDA}

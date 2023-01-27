@@ -4,6 +4,8 @@ import scipy.interpolate
 #import geopy.distance
 import rpnpy.librmn.all as rmn
 
+missing=-999
+
 def interpolate_to_point(TM_grid, lon_grid, lat_grid, lon_pt, lat_pt, method='linear', convlon=False):
     if ( isinstance(TM_grid, np.ma.core.MaskedArray) ):
         ivalid = np.where(TM_grid.mask == False)
@@ -19,7 +21,9 @@ def interpolate_to_point(TM_grid, lon_grid, lat_grid, lon_pt, lat_pt, method='li
     if ( convlon ):
         lon_flat = lon_flat * np.cos(lat_flat * np.pi / 180.0 )
         lon_in = lon_in * np.cos(lat_pt * np.pi / 180.0 )
-    TM_pt = float(scipy.interpolate.griddata( (lon_flat,lat_flat), TM_flat, (lon_in, lat_pt), method=method, fill_value=missing))
+    TM_pt = scipy.interpolate.griddata( (lon_flat,lat_flat), TM_flat, (lon_in, lat_pt), method=method, fill_value=missing)     
+    if ( isinstance(lat_pt, float) ):
+        TM_pt = float(TM_pt)
     return TM_pt
     
 def ezinterpolate_to_point(lon_pt, lat_pt, TM_grid, file, field, src='A', grid_lat=None, grid_lon=None):

@@ -12,6 +12,11 @@ import subprocess
 import glob
 import matplotlib.pyplot as plt
 
+import multiprocessing
+import itertools
+from functools import partial
+num_cpus = len(os.sched_getaffinity(0))
+
 import find_fcst_file
 import get_archive
 import stfd
@@ -70,6 +75,12 @@ def UU_ORCA_to_NE(UV):
     VN = UO * np.sin(TH) + VO * np.cos(TH)
     return [UE, VN]
 
+def U_Local_to_NE(UVT):
+    U0, V0, TH = UVT
+    UE = UO * np.cos(TH) - VO * np.sin(TH)
+    VN = UO * np.sin(TH) + VO * np.cos(TH)
+    return [UE, VN]
+    
 def calc_m15(FDin, e3tin, maskin):
     if ( isinstance(FDin, list) ):
         F15 = []
@@ -364,13 +375,13 @@ def plot_fields(FLDS, LONLATFLD, suptitle=None, grid=False, outfile_prefix='PLOT
               
     return
 
-def calc_error(obser, model, isangle=-1):
+def calc_error(obser, model, isangle=-1, etype='mean'):
 
     if ( ( isinstance(model, list) ) or ( isinstance(model, tuple) ) ):
         ERROR = []
         for imodel in model:
-            iERROR = calc_error(obser, imodel, isangle=isangle)
-            ERROR.append(imodel)
+            iERROR = calc_error(obser, imodel, isangle=isangle, etype=etype)
+            ERROR.append(iERROR)
         return ERROR
         
     nobss, nvars, ndeps = obser.shape
@@ -400,6 +411,13 @@ def calc_error(obser, model, isangle=-1):
                   for ideps in range(mdeps):
                     if ( ERROR[iobss,isangle,ifcst,ideps] >=      np.pi ): ERROR[iobss,isangle,ifcst,ideps] = ERROR[iobss,isangle,ifcst,ideps] - 2*np.pi
                     if ( ERROR[iobss,isangle,ifcst,ideps] <= -1.0*np.pi ): ERROR[iobss,isangle,ifcst,ideps] = 2*np.pi + ERROR[iobss,isangle,ifcst,ideps]
+
+    if ( etype == 'mean' ):
+        pass
+    elif ( etype == 'square' ):
+        ERROR = np.square(ERROR)
+    elif ( etype == 'absolute' ):
+        ERROR = np.absolute(ERROR)
             
     return ERROR
 
@@ -1834,6 +1852,7 @@ def load_mean_errors_from_obsfile(date, indir, insuffix):
 def load_3mean_errors_from_obsfile(date, indir, insuffix):
     datestr=check_date(date)
     obsfile=indir+'/class4_'+datestr+'_'+insuffix+'.nc'
+    #print(obsfile)
     (LONO, LATO, depth, plf_code), (obser, beste, inite, fcstv, persi, smocv, stokv, tidev, bathy), (depth_qc, otime_qc, posit_qc, obser_qc) = read_obsfile_allt(obsfile)
     
     numobs, numvars, numfcsts, numdeps = fcstv.shape
@@ -1915,7 +1934,8 @@ def load_3mean_errors_from_obsfiles(dates, indir, insuffix):
     elif ( isinstance(dates, list) ):
         date_list=dates
         obsfiles=[]
-        for datestr in dates:  
+        for this_date in dates:
+           datestr=check_date(this_date)  
            obsfiles.append(indir+'/'+indir+'/class4_'+datestr+'_'+insuffix+'.nc')
           
     SUPER_MEAN_ERRORS_LIST = [ [], [], [] ]
@@ -2075,6 +2095,258 @@ def plot_errors(EXPTS, LABELS=None, in_prefix='ERRORS', out_prefix='PLOTS/', dat
     
     return
 
+def create_dates(date_start, date_final, date_inc=1):
+    dates_list = []
+    this_date = check_date(date_start, outtype=datetime.datetime)
+    stop_date = check_date(date_final, outtype=datetime.datetime)
+    while ( this_date <= stop_date ):
+        dates_list.append(this_date)
+        this_date = this_date + datetime.timedelta(days=date_inc)
+    return dates_list
+       
+def load_3errors_from_obsfile(date, indir, insuffix, ierror=0, etype='mean',magnitude=False):
+    datestr=check_date(date)
+    obsfile=indir+'/class4_'+datestr+'_'+insuffix+'.nc'
+    #print(obsfile)
+    (LONO, LATO, depth, plf_code), (obser, beste, inite, fcstv, persi, smocv, stokv, tidev, bathy), (depth_qc, otime_qc, posit_qc, obser_qc) = read_obsfile_allt(obsfile)
+    #print( np.mean(np.square(obser-beste)))         
+    
+    numobs, numvars, numfcsts, numdeps = fcstv.shape
+
+    if ( ierror == 0 ):
+       pass # non adjustment of velocity
+    if ( ierror == 1 ):  # add 0.55 * stokes drift
+        beste = beste + 0.55*stokv
+        inite = inite + 0.55*stokv
+        for ifcst in range(numfcsts):
+            fcstv[:,:,ifcst,:] = fcstv[:,:,ifcst,:] + 0.55*stokv
+            persi[:,:,ifcst,:] = persi[:,:,ifcst,:] + 0.55*stokv
+    if ( ierror == 2 ):  # add tides
+        beste = beste + tidev
+        inite = inite + tidev
+        for ifcst in range(numfcsts):
+            fcstv[:,:,ifcst,:] = fcstv[:,:,ifcst,:] + tidev
+            persi[:,:,ifcst,:] = persi[:,:,ifcst,:] + tidev
+
+    if ( magnitude ):  (obser, beste, inite, fcstv, persi) = speed_and_angle_list((obser, beste, inite, fcstv, persi))
+    beste, inite, fcstv, persi = calc_error(obser, (beste, inite, fcstv, persi), etype=etype)
+    #print( np.mean(np.square(beste)))         
+
+    return (LONO, LATO, depth, plf_code), (obser, beste, inite, fcstv, persi)    
+
+def make_error_grids( NSHAPE, ddeg=4 ):
+   numobs, numvars, numfcsts, numdeps = NSHAPE
+   grid_lon, grid_lat, lon_bin, lat_bin, grid_sum, grid_cnt = cplot. make_bin_grid(ddeg=ddeg, central_longitude=0)
+   nlon, nlat = grid_sum.shape
+   grd_beste = np.zeros(( nlon, nlat, numvars, numdeps ))
+   grd_inite = np.zeros(( nlon, nlat, numvars, numdeps ))
+   grd_fcstv = np.zeros(( nlon, nlat, numvars, numfcsts, numdeps ))
+   grd_persi = np.zeros(( nlon, nlat, numvars, numfcsts, numdeps )) 
+   return (grid_lon, grid_lat), (grd_beste, grd_inite, grd_fcstv, grd_persi), grid_cnt
+
+def add_error_grids_system(indir, insuffix, date, ierror=1, ddeg=4, etype='mean', magnitude=False):
+    (LON, LAT, depth, plf_code), (obser, beste, inite, fcstv, persi) = load_3errors_from_obsfile(date, indir, insuffix, ierror=ierror, etype=etype, magnitude=magnitude)
+    (lon_grid, lat_grid), (Gbeste, Ginite, Gfcstv, Gpersi), CNT = make_error_grids(fcstv.shape, ddeg=ddeg)
+    (LONG, LATG), (Gbeste, Ginite, Gfcstv, Gpersi), CNT = add_error_grids( (LON,LAT), (beste, inite, fcstv, persi), (Gbeste, Ginite, Gfcstv, Gpersi), CNT)     
+    return (LONG, LATG), (Gbeste, Ginite, Gfcstv, Gpersi), CNT
+       
+def add_error_grids( LONLAT, ERRORS, GRDS, CNT, ddeg=4):
+    LON, LAT = LONLAT
+    
+    (Ebeste, Einite, Efcstv, Epersi) = ERRORS
+    (Gbeste, Ginite, Gfcstv, Gpersi) = GRDS
+    nobs, nvars, nfcst, nlevs = Efcstv.shape
+
+    for iobs in range(nobs):
+        LONG, LATG, __, WGT = cplot.binfldsum(np.array([LON[iobs]]),np.array([LAT[iobs]]), np.ones(1), ddeg=ddeg)
+        CNT = CNT + WGT
+        for ivars in range(nvars):
+            for ilevs in range(nlevs):
+                Gbeste[:,:,ivars, ilevs] = Gbeste[:,:,ivars, ilevs]+WGT*Ebeste[iobs, ivars, ilevs]
+                Ginite[:,:,ivars, ilevs] = Ginite[:,:,ivars, ilevs]+WGT*Einite[iobs, ivars, ilevs]
+                for ifcst in range(nfcst):
+                    Gfcstv[:,:,ivars,ifcst,ilevs] = Gfcstv[:,:,ivars,ifcst,ilevs]+WGT*Efcstv[iobs, ivars, ifcst, ilevs]
+                    Gpersi[:,:,ivars,ifcst,ilevs] = Gpersi[:,:,ivars,ifcst,ilevs]+WGT*Epersi[iobs, ivars, ifcst, ilevs]
+    
+    return (LONG, LATG), (Gbeste, Ginite, Gfcstv, Gpersi), CNT
+
+def fin_error_grids( GRDS, CNT, ddeg=4):
+    
+    (Gbeste, Ginite, Gfcstv, Gpersi) = GRDS
+    nlon, nlat, nvars, nfcst, nlevs = Gfcstv.shape
+
+    izer = np.where(CNT == 0)
+    NCNT = CNT.copy()
+    NCNT[izer] = 1.0   
+    for ivars in range(nvars):
+        for ilevs in range(nlevs):
+            #print(Gbeste[:,:,ivars,ilevs].shape, NCNT.shape)
+            Gbeste[:,:,ivars,ilevs] = Gbeste[:,:,ivars,ilevs]/NCNT
+            Ginite[:,:,ivars,ilevs] = Ginite[:,:,ivars,ilevs]/NCNT
+            for ifcst in range(nfcst):
+                Gfcstv[:,:,ivars,ifcst,ilevs] = Gfcstv[:,:,ivars,ifcst,ilevs]/NCNT
+                Gpersi[:,:,ivars,ifcst,ilevs] = Gpersi[:,:,ivars,ifcst,ilevs]/NCNT
+    
+    return (Gbeste, Ginite, Gfcstv, Gpersi)
+
+indir='CLASS4_currents_CCMEP_FILT2'
+insuffix='GIOPS_orca025_currents-filter'
+
+def bin_over_dates_3errors(indir, insuffix, dates, ierror=1, ddeg=4, mp=False, etype='mean', magnitude=False):
+    time0=time.time()
+    GGLIST = []
+    CNLIST = []
+    ndates=len(dates)
+    if ( not mp ): 
+        for date in dates:
+            time1=time.time()
+            FULL_RESULT = add_error_grids_system(indir, insuffix, date, ierror=ierror, ddeg=ddeg, etype=etype,magnitude=magnitude)
+            (LONG, LATG), GLIST, CNT = FULL_RESULT
+            GGLIST.append(GLIST)
+            CNLIST.append(CNT)
+            print(time.time() - time1)
+    else:
+        nproc=min(num_cpus, ndates)
+        pool = multiprocessing.Pool(nproc)
+        izip = list(zip( itertools.repeat(indir), itertools.repeat(insuffix), dates))
+        FULL_RESULT_LIST = pool.starmap(partial(add_error_grids_system, ierror=ierror, ddeg=ddeg, etype=etype), izip)
+        pool.close()
+        pool.join()
+        for idate in range(ndates):
+            (LONG, LATG), GLIST, CNT = FULL_RESULT_LIST[idate]
+            GGLIST.append(GLIST)
+            CNLIST.append(CNT)
+        
+    for idate in range(ndates):
+        if ( idate == 0 ):
+            lon_grid, lat_grid = LONG, LATG
+            CNT = CNLIST[idate]
+            Gbeste, Ginite, Gfcstv, Gpersi = GGLIST[idate]
+        else:
+            CNA = CNLIST[idate]
+            CNT = CNT + CNA
+            Abeste, Ainite, Afcstv, Apersi = GGLIST[idate]
+            Gbeste = Gbeste+Abeste
+            Ginite = Ginite+Ainite
+            Gfcstv = Gfcstv+Afcstv
+            Gpersi = Gpersi+Apersi
+       
+    GLIST = fin_error_grids( (Gbeste, Ginite, Gfcstv, Gpersi), CNT )
+    timet = (time.time() - time0) / len(dates)
+    print(timet)
+    return  (lon_grid, lat_grid),  GLIST     
+
+def make_spatial_plots_3errors(indir, insuffix, date_range, outdir='EPLOTS/', 
+                       magnitude=False, levels=np.arange(0, 0.11, 0.01), alevels=np.arange(-.475, 0.5, 0.05), ierror=0, ilev=0, etype='mean', mp=True):
+
+    etypp = etype
+    if ( etype == 'square'): etypp='rmse'
+    date_start = date_range[0]
+    date_final = date_range[1]
+    date_inc = 1
+    if ( len(date_range) == 3 ): date_inc = date_range[2]
+    dates_list = create_dates(date_start, date_final, date_inc)
+
+    (lon_grid, lat_grid),  (Ebeste, Einite, Efcstv, Epersi) = bin_over_dates_3errors(indir, insuffix, dates_list, ierror=ierror, etype=etype, mp=mp, magnitude=magnitude)
+    datestr_start = check_date(date_start, outtype=str)
+    datestr_final = check_date(date_final, outtype=str)
+    datestr_spans = datestr_start+'_'+datestr_final
+    datestr_spass = datestr_start+' to '+datestr_final
+    
+    nlons, nlats, nvars, nfcst, nlevs = Efcstv.shape
+
+    US = ['U', 'V', 'S', 'A']
+    BEST=['best', 'init']
+    FEST=['fcst', 'pers']
+    FFLD=[Efcstv, Epersi]
+    
+    CMAP = cmap_full_field
+    AMAP = cmap_anom_field
+    CLEV = levels
+    ALEV = alevels
+    if ( etype == 'mean' ): 
+        CLEV=alevels
+        CMAP=cmap_anom_field
+    for ifield, field in enumerate([Ebeste, Einite]):
+       for ivar in [0, 1]:
+           USS = US[ivar+2*magnitude]
+           outfile=outdir+USS+'_'+etypp+'_'+BEST[ifield]+'_'+datestr_spans+'.png'
+           title = etypp+' error for '+USS+' '+BEST[ifield]+' '+datestr_spass
+           plt_fld = field[:, :, ivar, ilev]
+           if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
+           cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV,obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+           if ( ifield == 1 ):
+               outfile=outdir+'D'+USS+'_'+etypp+'_'+BEST[ifield]+'_'+datestr_spans+'.png'
+               title = etype+' error difference for '+USS+' '+BEST[ifield]+' '+datestr_spass
+               plt_fld = field[:, :, ivar, ilev]-Ebeste[:, :, ivar, ilev]
+               #if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
+               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=ALEV,obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=AMAP)    
+
+           for ifcst in range(nfcst):
+               dstr=str(ifcst+1).zfill(2)
+               outfile=outdir+USS+'_'+etypp+'_'+FEST[ifield]+'_'+dstr+'_'+datestr_spans+'.png'
+               title = etypp+' error for '+USS+' '+FEST[ifield]+' day '+dstr+' '+datestr_spass
+               plt_fld = FFLD[ifield][:, :, ivar, ifcst, ilev]
+               if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
+               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+
+           for ifcst in range(nfcst):
+               dstr=str(ifcst+1).zfill(2)
+               outfile=outdir+'D'+USS+'_'+etypp+'_'+FEST[ifield]+'_'+dstr+'_'+datestr_spans+'.png'
+               title = etype+' error difference for '+USS+' '+FEST[ifield]+' day '+dstr+' '+datestr_spass
+               plt_fld = FFLD[ifield][:, :, ivar, ifcst, ilev]-field[:, :, ivar, ilev]
+               #if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
+               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=ALEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=AMAP)    
+    return           
+    
+def make_Dspatial_plots_3errors(indir, insuffix, date_range, outdir='EPLOTS/', 
+                       magnitude=False, levels=np.arange(-.095, 0.1, 0.01), ierror=[0,1], ilev=0, etype='mean', mp=True):
+
+    etypp = etype
+    if ( etype == 'square'): etypp='sqre'
+    date_start = date_range[0]
+    date_final = date_range[1]
+    date_inc = 1
+    if ( len(date_range) == 3 ): date_inc = date_range[2]
+    dates_list = create_dates(date_start, date_final, date_inc)
+
+    (lon_grid, lat_grid),  (Ebeste, Einite, Efcstv, Epersi) = bin_over_dates_3errors(indir, insuffix, dates_list, ierror=ierror[0], magnitude=magnitude, etype=etype, mp=True)
+    (lon_grid, lat_grid),  (Fbeste, Finite, Ffcstv, Fpersi) = bin_over_dates_3errors(indir, insuffix, dates_list, ierror=ierror[1], magnitude=magnitude, etype=etype, mp=True)
+
+    datestr_start = check_date(date_start, outtype=str)
+    datestr_final = check_date(date_final, outtype=str)
+    datestr_spans = datestr_start+'_'+datestr_final
+    datestr_spass = datestr_start+' to '+datestr_final
+    
+    nlons, nlats, nvars, nfcst, nlevs = Efcstv.shape
+
+    US = ['U', 'V', 'S', 'A']
+    BEST=['best', 'init']
+    FEST=['fcst', 'pers']
+    FFLD=[Efcstv, Epersi]
+    BFLD=[Fbeste, Finite]
+    CFLD=[Ffcstv, Fpersi]
+    for ifield, field in enumerate([Ebeste, Einite]):
+       for ivar in [0, 1]:
+           USS = US[ivar+2*magnitude]
+           outfile=outdir+USS+'_'+etypp+'_'+BEST[ifield]+'_'+datestr_spans+'.png'
+           title = etypp+' error for '+USS+' '+BEST[ifield]+' '+datestr_spass
+           plt_fld = field[:, :, ivar, ilev]-BFLD[ifield][:, :, ivar, ilev]
+           #if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
+           CLEV=levels
+           CMAP=cmap_anom_field
+           cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+
+           for ifcst in range(nfcst):
+               dstr=str(ifcst+1).zfill(2)
+               outfile=outdir+USS+'_'+etypp+'_'+FEST[ifield]+'_'+dstr+'_'+datestr_spans+'.png'
+               title = etypp+' error for '+USS+' '+FEST[ifield]+' day '+dstr+' '+datestr_spass
+               plt_fld = FFLD[ifield][:, :, ivar, ifcst, ilev]-CFLD[ifield][:, :, ivar, ifcst, ilev]
+               #if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
+               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+
+    return           
+
 def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/', 
                        calculate_error=True, magnitude=False, plot_daily=True, plot_time_mean=True, 
                        levels=np.arange(-1.0, 1.1, 0.1), ilev=0, cmap=cmap_anom_fmask):
@@ -2091,7 +2363,7 @@ def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/',
     (LONO, LATO, depth), (obser, beste, inite, fcstv, persi, nersi) = read_obsfile_plus(obsfile)
     nobss, nvars, nfcst, nlevs = fcstv.shape
     
-    grid_lon, grid_lat, lon_bin, lat_bin, grid_sum, grid_cnt = cplot.make_bin_grid(ddeg=5)
+    grid_lon, grid_lat, lon_bin, lat_bin, grid_sum, grid_cnt = cplot.make_bin_grid(ddeg=4)
     ERR_LIST = []
     for err_item in err_list:
        ERR_LIST.append( [ grid_sum.copy(), grid_cnt.copy() ])
@@ -2123,7 +2395,7 @@ def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/',
                     if ( ivar == 0 ): var='u'
                     if ( ivar == 1 ): var='v'
                     if ( ( ivar == 0 ) and ( magnitude ) ): var='s'
-                    if ( ( ivar == 1 ) and ( magnitude ) ): var='a'
+                    
                     plevels=levels
                     if ( ( magnitude ) and ( ivar == 2 ) ): plevels = np.pi * np.arange(-1.0,1.1, 0.1)
                     FLD=beste[:,ivar,ilev]
@@ -2252,3 +2524,4 @@ def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/',
                     if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
                     ofile=outdir+datestr+'_'+'ps'+str(ifcst).zfill(2)+'_'+var+error+'.png'
                     cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+    return
