@@ -1,13 +1,16 @@
 #!/bin/bash
-# ord_soumet /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product.sh -cpus 1 -mpi -cm 8000M -t 18000 -shell=/bin/bash
-# bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product.sh
+# ord_soumet /fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product.sh -cpus 1 -mpi -cm 8000M -t 18000 -shell=/bin/bash
+# bash /fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/final_product.sh
 
-WDIR=/fs/site4/eccc/mrd/rpnenv/dpe000/Class4_Currents
-HDIR=/fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
+WDIR=/fs/site6/eccc/mrd/rpnenv/dpe000/Class4_Currents
+HDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
+
+## Adding NCO operations
+. ssmuse-sh -d eccc/cmd/cmds/ext/20220331
 
 cd ${WDIR}
 
-SDATE=20220503
+SDATE=20230[23]??
 FFS=(f4)
 
 SOURCE=CLASS4_currents_CCMEP_FILT
@@ -22,7 +25,7 @@ for FF in ${FFS[*]} ; do
     f1) suff="-filter" ;;
     f2) suff="-filter" ;;
     f3) suff="-filter" ;;
-    f4) suff"=-filter" ;;
+    f4) suff="-filter" ;;
   esac
   
   DEST=CLASS4_currents_CCMEP_${dest}

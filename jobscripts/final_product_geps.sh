@@ -10,7 +10,7 @@ HDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 
 cd ${WDIR}
 
-SDATE=20200[345]??
+SDATE=2023????
 FFS=(f2)
 
 SOURCE=CLASS4_currents_GEPS_FILT

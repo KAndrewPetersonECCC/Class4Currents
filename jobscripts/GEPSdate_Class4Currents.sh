@@ -5,9 +5,19 @@ USAGE="USAGE:  GEPSdate_Class4Currents.sh -d=CCYYMMDD"
 
 SUBMIT=False
 FILTER=True
+ENAN=False
+FCEX=GEPS_STO2X
 for i in "$@"
 do
 case $i in
+    -A|--Ensemble_Analysis|--EA)
+    ENAN=True
+    shift # past argument=value
+    ;;
+    -F=*|--forecast=*|--fcst=*)
+    FCEX="${i#*=}"
+    shift # past argument=value
+    ;;
     -d=*|--date=*)
     DATE="${i#*=}"
     shift # past argument=value
@@ -57,9 +67,14 @@ fi
 WDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 cd ${WDIR}
 
-BJOB=${WDIR}/JOBS/GEPS_Class4Currents.${DATE}.${ENSM}.${FILTER:0:1}.sh
-NJOB=${WDIR}/JOBS/GEPS_Class4Currents.${NEXT}.${ENSM}.${FILTER:0:1}.sh
-PJOB=${WDIR}/JOBS/GEPS_Class4Currents.${DATE}.${ENSM}.${FILTER:0:1}.py
+if [[ ${ENAN} == False ]]; then 
+    GEPS=GEPS
+else
+    GEPS=${FCEX}
+fi
+BJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${DATE}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.sh
+NJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${NEXT}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.sh
+PJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${DATE}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.py
 SJOB="ord_soumet ${BJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 CJOB="ord_soumet ${NJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 
@@ -93,15 +108,23 @@ import matplotlib as mpl
 mpl.use('Agg')
 import traceback
 import datetime
+import time
 import datadatefile
 import Class4Current
+import Class4CurrentEA
 datestr="${DATE}"
 date=datadatefile.convert_strint_date(datestr)
 if not ( '${ENSM}' == 'A' ):
     ens_list=[${ENSM}]
     print("PROCESSING DATE", datestr, date, ens_list)
     try:
-        Class4Current.process_geps_obs(date=date, ens_list=ens_list, filter=${FILTER})
+        t0 = time.time()
+        if not ${ENAN}:
+            Class4Current.process_geps_obs(date=date, ens_list=ens_list, filter=${FILTER})
+        else:
+            Class4CurrentEA.process_enan_obs(date=date, ens_list=ens_list, filter=${FILTER}, expt='${FCEX}')
+        te = time.time() - t0
+        print("PROCESS SUCCESS:  TIME ELAPSED ", te)
     except:
         print(traceback.format_exc())
         sys.stdout.flush()
@@ -109,7 +132,12 @@ else:
     print("ASSEMBLING DATE", datestr, date)
     try:
         # NEED TO ADD NON FILTER OPTIONS.
-        Class4Current.assemble_ensemble_date(date, obspre='CLASS4_currents_GEPS_FILT/class4', obssuf='GEPS_orca025_currents', iters=['f1','f2'], nens=21, clobber=True)
+        t0 = time.time()
+        if not ${ENAN}:
+            Class4Current.assemble_ensemble_date(date, obspre='CLASS4_currents_GEPS_FILT/class4', obssuf='GEPS_orca025_currents', iters=['f1','f2'], nens=21, clobber=True)
+        else:
+            Class4CurrentEA.assemble_ensembleEA_date(date, obspre='CLASS4_currents_ENAN_FILT/class4', obssuf='ENAN_orca025_currents', iters=['f1','f2'], nens=21, clobber=True, expt='${FCEX}')
+        print("ASSEMBLE SUCCESS:  TIME ELAPSED ", te)
     except:
         print(traceback.format_exc())
         sys.stdout.flush()

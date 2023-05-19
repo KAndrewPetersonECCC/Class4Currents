@@ -200,6 +200,9 @@ def find_fcst_file(system, date, leadhrs, ie, src='ocn', execute=False):
     return file_fcst
 
 def find_anal_file(date, system='gd', anal=True, var='T',execute=False):
+    if ( system == 'GD' ): system='gd'
+    if ( system == 'GU' ): system='gu'
+ 
     if ( not isinstance(anal, bool) ):
         if ( isinstance(anal, str) ):
             if ( ( anal == 'ANAL' ) or ( anal == 'anal' ) ): anal=True
@@ -266,15 +269,16 @@ def get_archived_analysis(date, system='gd', ANAL='ANAL', execute=False):
     arc_file=arc_anal+'/'+branch+'/'+date_string+'_.ca'
     arguements=['-v', '-p', '-x']
     files=[]
-    for grid in ['T', 'U', 'V']:
-        file='ORCA025-CMC-'+ANAL+'_1d_grid_'+grid+'_'+date_string+'.nc.gz'
+    for BNAL in ['ANAL', 'TRIAL']:
+      for grid in ['T', 'U', 'V']:
+        file='ORCA025-CMC-'+BNAL+'_1d_grid_'+grid+'_'+date_string+'.nc.gz'
         add='DIA/'+file
         arguements.append(add)
         files.append(arc_anal+'/'+file)
-    file='ORCA025-CMC-'+ANAL+'_1h_grid_T_2D_'+date_string+'.nc.gz'
-    add='DIA/'+file
-    arguements.append(add)
-    files.append(arc_anal+'/'+file)        
+      file='ORCA025-CMC-'+BNAL+'_1h_grid_T_2D_'+date_string+'.nc.gz'
+      add='DIA/'+file
+      arguements.append(add)
+      files.append(arc_anal+'/'+file)        
     tmpcp.cdcmcarc(arc_file, arc_anal, arguements=arguements,rm=True)
     for file in files:
         nile=tmpcp.gunzip(file)

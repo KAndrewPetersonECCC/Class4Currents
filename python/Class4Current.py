@@ -6,6 +6,7 @@ sys.path.insert(0, '/home/dpe000/Class4_Currents/python')
 import netCDF4
 import shutil 
 import numpy as np
+import math
 import datetime
 import time
 import subprocess
@@ -26,6 +27,7 @@ import find_value_at_point
 import cplot
 import find_hall
 import datadatefile
+import taylor_diagram
 
 KCONV=273.16
 
@@ -257,9 +259,10 @@ def read_anal_file(file, grid='T', dates=[]):
         new_DAT = []
         indices = []
         for date in dates:
-            index = DAT.index(date)
-            new_DAT.append(DAT[index])
-            indices.append(index)
+            if ( date in DAT ):
+                index = DAT.index(date)
+                new_DAT.append(DAT[index])
+                indices.append(index)
         DAT=new_DAT
         if ( FLD.ndim == 4 ):
             FLD=FLD[indices,:,:,:]
@@ -377,6 +380,14 @@ def plot_fields(FLDS, LONLATFLD, suptitle=None, grid=False, outfile_prefix='PLOT
 
 def calc_error(obser, model, isangle=-1, etype='mean'):
 
+    zero_obs = 1
+    zero_fld = 1
+    if ( etype == 'obs' ): 
+        zero_fld=0
+        zero_obs=1
+    if ( etype == 'fld' ): 
+        zero_obs=0
+        zero_fld=-1    
     if ( ( isinstance(model, list) ) or ( isinstance(model, tuple) ) ):
         ERROR = []
         for imodel in model:
@@ -396,7 +407,7 @@ def calc_error(obser, model, isangle=-1, etype='mean'):
         return None
         
     if ( mfcst == 0 ):
-        ERROR = obser - model
+        ERROR = zero_obs*obser - zero_fld*model
         if ( isangle >= 0 ):
             for iobss in range(mobss):
               for ideps in range(mdeps):
@@ -405,19 +416,25 @@ def calc_error(obser, model, isangle=-1, etype='mean'):
     if ( mfcst > 0 ):
         ERROR = 0.0*model.copy()
         for ifcst in range(mfcst):
-            ERROR[:,:,ifcst,:] = model[:,:,ifcst,:] - obser[:,:,:]
+            ERROR[:,:,ifcst,:] = zero_obs*obser[:,:,:] - zero_fld*model[:,:,ifcst,:]
             if ( isangle >= 0 ):
                 for iobss in range(mobss):
                   for ideps in range(mdeps):
                     if ( ERROR[iobss,isangle,ifcst,ideps] >=      np.pi ): ERROR[iobss,isangle,ifcst,ideps] = ERROR[iobss,isangle,ifcst,ideps] - 2*np.pi
                     if ( ERROR[iobss,isangle,ifcst,ideps] <= -1.0*np.pi ): ERROR[iobss,isangle,ifcst,ideps] = 2*np.pi + ERROR[iobss,isangle,ifcst,ideps]
 
-    if ( etype == 'mean' ):
+    if ( ( etype == 'mean' ) or ( etype == 'obs' ) or ( etype == 'fld' ) ):
         pass
     elif ( etype == 'square' ):
         ERROR = np.square(ERROR)
     elif ( etype == 'absolute' ):
         ERROR = np.absolute(ERROR)
+        
+
+    if ( etype == 'cross' ):
+        MOD = calc_error(obser, model, etype='obs', isangle=isangle)
+        OBS = calc_error(obser, model, etype='fld', isangle=isangle)
+        ERROR = np.multiply(MOD, OBS)
             
     return ERROR
 
@@ -453,23 +470,23 @@ def process_obsfile(date=tate, TEST_SINGLE=False, Plot=False, CHARLY=True, filte
     time0=time.time()
     if ( not CHARLY ):
         psyfile='CLASS4_currents/class4_'+datestr+'_PSY4V3R1_orca12_currents.nc'
-        obsfile1='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.1.nc'
-        obsfile2='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.2.nc'
-        obsfile3='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.3.nc'
-        obsfile4='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.4.nc'
+        obsfile1='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.1.nc'   # Nearest neighbour
+        obsfile2='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.2.nc'   # Nearest neighbour on 0.2 lat/lon grid
+        obsfile3='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.3.nc'   # Nearest neighbour on CST interp 0.2 lat/lon grid
+        obsfile4='CLASS4_currents_CCMEP/class4_'+datestr+'_GIOPS_orca025_currents.4.nc'   # Nearest neighbour on 0.2 lat/lon grid from U10/20 outputs.  
     elif ( CHARLY ):
       if ( not filter ): 
         psyfile='CLASS4_currents_CHARLY/class4_'+datestr+'_PSY4V3R1_orca12_currents.nc'
-        obsfile1='CLASS4_currents_CCMEP_UFIL_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.1.nc'
-        obsfile2='CLASS4_currents_CCMEP_UFIL_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.2.nc'
-        obsfile3='CLASS4_currents_CCMEP_UFIL_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.3.nc'
-        obsfile4='CLASS4_currents_CCMEP_UFIL_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.4.nc'
+        obsfile1='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.1.nc'
+        obsfile2='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.2.nc'
+        obsfile3='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.3.nc'
+        obsfile4='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.4.nc'
       elif ( filter ): 
         psyfile='CLASS4_currents_CHARLY/class4_'+datestr+'_PSY4V3R1_orca12_currents-filtr.nc'
-        obsfile1='CLASS4_currents_CCMEP_FILT_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.f1.nc'
-        obsfile2='CLASS4_currents_CCMEP_FILT_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.f2.nc'
-        obsfile3='CLASS4_currents_CCMEP_FILT_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.f3.nc'
-        obsfile4='CLASS4_currents_CCMEP_FILT_JUNE/class4_'+datestr+'_GIOPS_orca025_currents.f4.nc'
+        obsfile1='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f1.nc'
+        obsfile2='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f2.nc'
+        obsfile3='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f3.nc'
+        obsfile4='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f4.nc'
         
     print('obsfile', obsfile1, obsfile2, obsfile3)
     # READ IN OBS FILE
@@ -1359,7 +1376,7 @@ def process_geps_obs(date=tate, ens_list=[0], Plot=False, filter=True, DO_CLEAN=
     timeo = time.time() - time0o
     print("PROCESSING TIME per observation ",timeo, nobss, timeo/nobss)
 
-    for        ig in range(len(FCSTV_LIST)):
+    for ig in range(len(FCSTV_LIST)):
         fcstv = FCSTV_LIST[ig].copy()
         obsfile = OBSFILE_LIST[ig]
         oesfile = OESFILE_LIST[ig]
@@ -1411,6 +1428,22 @@ def read_obsfile(obsfile):
 
     return (LONO, LATO, depth), (obser, beste, fcstv, persi)    
 
+def read_obsfile_variables(obsfile, variables=['observation', 'best_estimate']):
+
+    # READ IN OBS FILE
+    obsset = netCDF4.Dataset(obsfile,mode='r')
+    LONO=obsset.variables['longitude'][:]
+    LATO=obsset.variables['latitude'][:]
+    depth=obsset['depth'][:]
+    
+    FLDLIST=[]
+    for variable in variables:
+        field=obsset[variable][:]
+        FLDLIST.append(field)
+    obsset.close()
+
+    return (LONO, LATO, depth), FLDLIST
+        
 def read_obsfile_plus(obsfile):
     # READ IN OBS FILE
     obsset = netCDF4.Dataset(obsfile,mode='r')
@@ -1438,6 +1471,12 @@ def read_obsfile_plus(obsfile):
 
     return (LONO, LATO, depth), (obser, beste, inite, fcstv, persi, nersi)    
 
+stoke_variables=['tides', 'stokes_best']
+
+def read_stokes_variables(obsfile):
+    (LONO, LATO, depth), (tidev, stokv) = read_obsfile_variables(obsfile, variables=stoke_variables)
+    return tidev, stokv
+    
 def read_obsfile_allt(obsfile):
     # READ IN OBS FILE
     obsset = netCDF4.Dataset(obsfile,mode='r')
@@ -1530,68 +1569,99 @@ def write_model_obsfile_plus(obsfile, tplfile, fields):
     return
 
 #bash jobscripts/GEPSdate_Class4Currents.sh --date=20210105 -e=${ie} -f -s
-def fill_missing_GEPS_dates(date_range, filter=True, it=2, fill=False):
+def fill_missing_GEPS_dates(date_range, filter=True, it=2, fill=False, submit=True, fcst='' , mean=False):
     date_start = check_date(date_range[0], outtype=datetime.datetime)
     date_final = check_date(date_range[1], outtype=datetime.datetime)
     print(date_start, date_final)
     date_now = date_start
+    MISS=0
     while ( date_now <= date_final ):
-        print(date_now)
+        doFILL='LIST'
+        if ( fill ): doFILL="FILL"
+        print(doFILL, date_now)
         if ( fill ):
-            fill_missing_GEPS(date_now, filter=filter, it=it)
+            if ( MISS >= 300 ):
+                print("ABORT", MISS)
+                fill=False
+            missing_list = fill_missing_GEPS(date_now, filter=filter, it=it, fcst=fcst, submit=submit, mean=mean)
         else:
-            missing_list = find_missing_GEPS(date_now, filter=filter, it=it)
+            missing_list = find_missing_GEPS(date_now, filter=filter, it=it, fcst=fcst, mean=mean)
             print(missing_list)
+        MISS = MISS + len(missing_list)
         date_now = date_now + datetime.timedelta(days=1)
-    return
+    return MISS
  
-def fill_missing_GEPS(date, filter=True, it=2):
+def fill_missing_GEPS(date, filter=True, it=2, fcst='', submit=True, mean=False):
     if ( isinstance(date, list) ):
         for idate in date:
-            fill_missing_GEPS(idate, filter=filter, it=it)
+            fill_missing_GEPS(idate, filter=filter, it=it, fcst=fcst, submit=submit)
         return
     datestr=check_date(date)
-    missing_list = find_missing_GEPS(date, filter=filter, it=it)
+    missing_list = find_missing_GEPS(date, filter=filter, it=it, fcst=fcst, mean=mean)
     print(missing_list)
     base_command='/home/dpe000/Class4_Currents/jobscripts/GEPSdate_Class4Currents.sh'
     if ( filter ):
         filstr='-f'
     else:
         filstr='-u'
+    EA=''
+    pass_fcst=''
+    if ( len(fcst) > 0 ):
+        pass_fcst='--fcst=GEPS_'+fcst
+        EA='--EA'
+    if ( fcst == 'ENAN' ):
+        pass_fcst='--fcst=GEPS_STO2X'
+    SUBMIT = ''
+    if ( submit ): SUBMIT='-s'
         
     for missing in missing_list:
-        command=['bash', base_command, '-d='+datestr, '-e='+str(missing), filstr, '-s']
+        estr=str(missing)
+        if ( estr == 'enm' ): estr='A'
+        command=['bash', base_command, '-d='+datestr, '-e='+estr, filstr, EA, pass_fcst, SUBMIT]
+        while '' in command: command.remove('')
+        print(command)
         subprocess.call(command)
-    return
+    return missing_list
     
-def find_missing_GEPS(date, filter=True, it=2):
+def find_missing_GEPS(date, filter=True, it=2, fcst='', nens=21, mean=False):
     if ( isinstance(date, list) ): 
         missing_listlist = []
         for idate in date:
-            missing_list = find_missing_GEPS(idate, filter=filter, it=it)
+            missing_list = find_missing_GEPS(idate, filter=filter, it=it, fcst=fcst)
             missing_listlist.append(missing_list)
         return missing_listlist
         
     insuffix='GEPS_orca025_currents' 
+    if ( len(fcst) > 0 ):  insuffix=fcst+'_orca025_currents'
     if ( filter ):
         indir='CLASS4_currents_GEPS_FILT'
+        if ( len(fcst) > 0 ):  indir='CLASS4_currents_'+fcst+'_FILT'
         insuffix=insuffix+'.f'
     else:
         indir='CLASS4_currents_GEPS_UFIL'
+        if ( len(fcst) > 0 ):  indir='CLASS4_currents_'+fcst+'_UFIL'
         insuffix=insuffix+'.'
-
-    missing_list = find_missing_members(date, indir=indir, insuffix=insuffix, it=it, nens=21)
+    nens_in = nens
+    if ( mean ):  nens_in=0
+    missing_list = find_missing_members(date, indir=indir, insuffix=insuffix, it=it, nens=nens_in)
     return missing_list   
         
 def find_missing_members(date, indir='CLASS4_currents_GEPS_FILT', insuffix='GEPS_orca025_currents.f', it=2, nens=21):
     missing_list = []
     datestr=check_date(date)
     bile=indir+'/class4_'+datestr+'_'+insuffix+str(it)
-    for ie in range(nens):
+    if ( nens == 0 ):
+      ensstr='enm'
+      qile=bile+'.'+ensstr+'.nc'
+      exist=os.path.isfile(qile)
+      #print(qile, exist)
+      if ( not exist ): missing_list.append('enm')
+    else:
+      for ie in range(nens):
         ensstr=str(ie).zfill(3)
         qile=bile+'.'+ensstr+'.nc'
-        #print(qile)
         exist=os.path.isfile(qile)
+        #print(qile, exist)
         if ( not exist ): missing_list.append(ie)
     return missing_list
     
@@ -1848,7 +1918,7 @@ def load_mean_errors_from_obsfile(date, indir, insuffix):
     MMEAN_ERRORS = calc_mean_error(Mobser, (Mbeste, Minite, Mfcstv, Mpersi, Mnersi), isangle=1)
     
     return MEAN_ERRORS, MMEAN_ERRORS
-    
+ 
 def load_3mean_errors_from_obsfile(date, indir, insuffix):
     datestr=check_date(date)
     obsfile=indir+'/class4_'+datestr+'_'+insuffix+'.nc'
@@ -2128,15 +2198,605 @@ def load_3errors_from_obsfile(date, indir, insuffix, ierror=0, etype='mean',magn
             fcstv[:,:,ifcst,:] = fcstv[:,:,ifcst,:] + tidev
             persi[:,:,ifcst,:] = persi[:,:,ifcst,:] + tidev
 
-    if ( magnitude ):  (obser, beste, inite, fcstv, persi) = speed_and_angle_list((obser, beste, inite, fcstv, persi))
-    beste, inite, fcstv, persi = calc_error(obser, (beste, inite, fcstv, persi), etype=etype)
+    if ( magnitude ):  
+        (obser, beste, inite, fcstv, persi) = speed_and_angle_list((obser, beste, inite, fcstv, persi))
+        beste, inite, fcstv, persi = calc_error(obser, (beste, inite, fcstv, persi), etype=etype, isangle=1)
+    else:
+        beste, inite, fcstv, persi = calc_error(obser, (beste, inite, fcstv, persi), etype=etype)
     #print( np.mean(np.square(beste)))         
 
     return (LONO, LATO, depth, plf_code), (obser, beste, inite, fcstv, persi)    
 
+def load_3errors_from_obsfile_single(date, indir, insuffix, variable, ierror=0, etype='mean',magnitude=False):
+    (LONO, LATO, depth), (obser, field) = load_3values_from_obsfile_single(date, indir, insuffix, variable, ierror=ierror, etype=etype,magnitude=magnitude)
+
+    if ( magnitude ):  
+        error = calc_error(obser, field, etype=etype, isangle=1)
+    else:
+        error = calc_error(obser, field, etype=etype)
+
+    return (LONO, LATO, depth), error    
+
+def adjust_velocities(vfield, stokes_vars, ierror=0):
+    tidev, stokv = stokes_vars
+    if ( vfield.ndim == 3 ):
+        numobs, numvars, numdeps = vfield.shape
+    if ( vfield.ndim == 4 ):
+        numobs, numvars, nfcsts, numdeps = vfield.shape
+    if ( vfield.ndim == 5 ):
+        numobs, numvars, numfcsts, numensm, numdeps = vfield.shape
+
+    nfield = vfield.copy()    
+
+    if ( ierror == 0 ):
+       pass
+    if ( ierror == 1 ):  # add 0.55 * stokes drift
+        if ( vfield.ndim == 3 ):
+            nfield = nfield + 0.55*stokv
+        if ( vfield.ndim == 4 ):
+            for ifcst in range(numfcsts):
+                nfield[:,:,ifcst,:] = nfield[:,:,ifcst,:] + 0.55*stokv
+        if ( vfield.ndim == 5 ):
+            for ifcst in range(numfcsts):
+              for iensm in range(numensm):
+                nfield[:,:,ifcst, iensm, :] = nfield[:,:,ifcst,iensm, :] + 0.55*stokv
+    if ( ierror == 2 ):  # add tides
+        if ( vfield.ndim == 3 ):
+            nfield = nfield + tidev
+        if ( vfield.ndim == 4 ):
+            for ifcst in range(numfcsts):
+                nfield[:,:,ifcst,:] = nfield[:,:,ifcst,:] + tidev
+        if ( vfield.ndim == 5 ):
+            for ifcst in range(numfcsts):
+              for iensm in range(numensm):
+                nfield[:,:,ifcst, iensm, :] = nfield[:,:,ifcst,iensm, :] + tidev
+
+    return nfield
+    
+def load_3values_from_obsfile_single(date, indir, insuffix, variable, ierror=0, magnitude=False):
+    datestr=check_date(date)
+    obsfile=indir+'/class4_'+datestr+'_'+insuffix+'.nc'
+    #print(obsfile)
+    tidev, stokv = read_stokes_variables(obsfile)
+    (LONO, LATO, depth), (obser, field) = read_obsfile_variables(obsfile, ['observation', variable])
+    #print( np.mean(np.square(obser-beste)))         
+
+    field = adjust_velocities( field, (tidev, stokv), ierror=ierror)    
+
+    if ( magnitude ):  
+        obser, field = speed_and_angle_list((obser, field))
+
+    return (LONO, LATO, depth), (obser, field)    
+
+def calc_field_errors( field, obser, isangle=0):
+    merror = calc_error(obser, field, etype='mean', isangle=isangle)
+    sqrerr = np.square(merror)
+    abserr = np.absolute(merror)
+    covari = np.multiply(obser, field)
+    varfld = np.square(field)
+    varobs = np.square(obser)
+    return merror, sqrerr, abserr, covari, varfld, varobs
+    
+def csum_field( field, MN_field=None, axis=0):
+    if ( isinstance(field, list) or isinstance(field, tuple) ):
+        NMN_field = []
+        for ii, ifield in enumerate(field):
+            if ( isinstance(MN_field, type(None)) ):
+                iMN = None
+            else:
+                iMN = MN_field[ii]
+            iNN, iGC = csum_field(ifield, iMN)
+            NMN_field.append(iNN)
+        return NMN_field, iGC   #  Assumes all fields have same length?
+    if ( isinstance(MN_field, type(None)) ):
+        NMN_field = np.sum(field, axis=axis)
+    else:
+        NMN_field = MN_field + np.sum(field, axis=axis) 
+    GCN = np.ma.size(field, axis=axis)
+    return NMN_field, GCN
+
+def calc_errors_date_analysis(date, expt, variable, insuffix='GIOPS_orca025_currents.f2', ierror=0, ddeg=4.0):
+        (LONO, LATO, depth), (obser, field) = load_3values_from_obsfile_single(date, expt, insuffix, variable, ierror=1)
+        merror, sqrerr, abserr, covari, varfld, varobs = calc_field_errors(field, obser)
+        # THIS IS NOT NECESSARY IF THE FIELD AND OBSERVATION ARE SAME DIMENSION -- BUT IT's EASILY CORRECTED
+        obser_padded =  calc_error(obser, field, etype='obs')
+        FIELDS=(obser_padded, field, varobs, varfld, covari, merror, sqrerr, abserr)
+        # GLOBAL SUMS
+        MN_FIELDS, GCN = csum_field( FIELDS, None)
+        GD_FIELDS = []
+        for fld in FIELDS:
+            (LONG, LATG), grid, CNT = make_error_grid(fld.shape, ddeg=ddeg)
+            GD_FIELDS.append(grid)
+        (LONG, LATG), GD_FIELDS, CNT = add_error_grid_list( (LONO,LATO), FIELDS, GD_FIELDS, CNT)
+        return (LONG, LATG), MN_FIELDS, GD_FIELDS, GCN, CNT, date       
+
+def add_numpy_list( LISTOFTIMES ):
+    # First list is in time
+    # Second list is FLDS
+    ntimes = len( LISTOFTIMES)
+    nfield = len(LISTOFTIMES[0])
+    LISTOFSUMS=[]
+    print(type(LISTOFTIMES), type(LISTOFTIMES[0]))
+    for ifield in range(nfield):
+        FLDSINTIME = [ LISTOFTIMES[itime][ifield] for itime in range(ntimes) ]
+        SUMSINTIME = sum(FLDSINTIME)
+        LISTOFSUMS.append(SUMSINTIME)
+    return LISTOFSUMS
+    
+def loop_analysis_dates(dates, expt, variable, insuffix='GIOPS_orca025_currents.f2', ierror=1, ddeg=4.0, mp=True):
+
+    ndates=len(dates)
+    MN_LIST = []
+    GD_LIST = []
+    GC_LIST = []
+    CN_LIST = []
+    DT_LIST = []
+    time0 = time.time()
+    if  ( not mp ):
+        for date in dates:
+            print(date)
+            # MN_FIELDS=Global / GD_FIELDS=Binned / GCN=Global Count / CNT=Binned Count
+            (LONG, LATG), MN_FIELDS, GD_FIELDS, GCN, CNT, DT = calc_errors_date_analysis(date, expt, variable, insuffix=insuffix, ierror=0, ddeg=ddeg)   
+            MN_LIST.append(MN_FIELDS)
+            GD_LIST.append(GD_FIELDS)  
+            GC_LIST.append(GCN)
+            CN_LIST.append(CNT)
+            DT_LIST.append(DT)
+            #print(type(MN_FIELDS), type(GD_FIELDS), GCN, type(CNT))
+    else:
+        nproc=min(num_cpus, ndates)
+        pool = multiprocessing.Pool(nproc)
+        izip = list(zip( dates, itertools.repeat(expt), itertools.repeat(variable)))
+        FULL_RESULT_LIST = pool.starmap(partial(calc_errors_date_analysis, insuffix=insuffix, ierror=ierror, ddeg=ddeg), izip)
+        pool.close()
+        pool.join()
+        for idate in range(ndates):
+            (LONG, LATG), MN_FIELDS, GD_FIELDS, GCN, CNT, DT = FULL_RESULT_LIST[idate]
+            #print(type(MN_FIELDS), type(GD_FIELDS), GCN, type(CNT))
+            MN_LIST.append(MN_FIELDS)
+            GD_LIST.append(GD_FIELDS)  
+            GC_LIST.append(GCN)
+            CN_LIST.append(CNT)
+            DT_LIST.append(DT)
+    file=['ANAL_data/U_'+variable+'_'+expt+'.dat', 'ANAL_data/V_'+variable+'_'+expt+'.dat']
+    tile=['ANAL_data/U_'+variable+'_'+expt+'.tmp', 'ANAL_data/V_'+variable+'_'+expt+'.tmp']
+    for idate, date in enumerate(DT_LIST):
+        MN_FIELDS = MN_LIST[idate]
+        GCN = GC_LIST[idate]
+        dateint=check_date(date, outtype=int)
+        for ifld in range(2):
+           mn_fields = np.array([FIELD[ifld,0] for FIELD in MN_FIELDS]+[GCN])
+           datadatefile.add_to_file(dateint, mn_fields, file=file[ifld], tmpfile=tile[ifld])               
+    MNS_FIELDS = add_numpy_list(MN_LIST)
+    GDS_FIELDS = add_numpy_list(GD_LIST)
+    GCS = sum(GC_LIST)
+    CNS = sum(CN_LIST)
+    print(GCS)
+    timef = time.time() - time0
+    print('TIME ELAPSED', timef)
+    
+    return (LONG, LATG), MNS_FIELDS, GDS_FIELDS, GCS, CNS               
+
+def calc_mean_field(sum_field, cnt):
+    if ( isinstance(sum_field, list) ):
+        mean_field = []
+        for sum_field_element in sum_field:
+            mean_field_element = calc_mean_field(sum_field_element, cnt)
+            mean_field.append(mean_field_element)
+    elif ( isinstance(cnt, int) or isinstance(cnt, float) ): 
+        mean_field=0.0*sum_field
+        if ( cnt != 0 ): mean_field=sum_field/cnt
+    elif ( isinstance(cnt, np.ndarray) ):
+        isfinite = np.where(cnt > 0 )
+        mean_field = 0.0 * sum_field
+        nd = 0
+        #if ( sum_field.ndim == 3 ): nx, ny, nv = sum_field.shape
+        if ( sum_field.ndim == 4 ): 
+          nx, ny, nv, nd = sum_field.shape
+          for iiv in range(nv):
+            for iid in range(nd):
+              if ( nd > 0 ): 
+                iii_sum_field = sum_field[:, :, iiv, iid]
+                iii_mean_field = mean_field[:,:,iiv, iid]
+                iii_mean_field[isfinite] = iii_sum_field[isfinite] / cnt[isfinite]
+                mean_field[:,:,iiv,iid] = iii_mean_field
+        if ( sum_field.ndim == 2 ): 
+            nv, nt = sum_field.shape
+            for iiv in range(nv):
+                mean_field[iiv, isfinite] = sum_field[iiv, isfinite] / cnt[isfinite]
+    return mean_field
+
+#FIELDS=(obser_padded, field, varobs, varfld, covari, merror, sqrerr, abserr)
+def get_correlation_fields(field_list):
+    sum_obs = field_list[0]
+    sum_fld = field_list[1]
+    var_obs = field_list[2]
+    var_fld = field_list[3]
+    cov_obs_fld = field_list[4]
+    return sum_obs, sum_fld, var_obs, var_fld, cov_obs_fld
+
+def calc_variance(ncnt, sum_x, sum_x2):
+    if ( isinstance(ncnt, int) or isinstance(ncnt, float) ):
+        vari = 0.0
+        if ( ncnt > 1 ):
+            vari = sum_x2 / ncnt - np.square(sum_x/ncnt)
+    elif ( isinstance(ncnt, np.ndarray) ):
+        nd=0
+        if ( sum_x.ndim == 3 ): 
+            nx, ny, nv = sum_x.shape
+            pass
+        if ( sum_x.ndim == 4 ): 
+            nx, ny, nv, nd = sum_x.shape
+            vari = 0.0 * sum_x
+            isfinite = np.where(ncnt > 1 )
+            for iiv in rangve(nv):
+                for iid in range(nd):
+                    iii_sum_x = sum_x[:,:,iiv,iid]
+                    iii_sum_x2 = sum_x2[:,:, iiv, iid]
+                    iii_vari = vari[:,:,iiv,iid]
+                    var1 = iii_sum_x2[isfinite] / ncnt[isfinite]
+                    var2 = np.square(iii_sum_x[isfinite] / ncnt[isfinite])
+                    iii_vari[isfinite] = var1 - var2
+                    vari[:,:,iiv,iid] = iii_vari
+        if ( sum_x.ndim == 2 ): 
+            nv, nt = sum_x.shape
+            for iiv in range(nv):
+                var1 = sum_x2[iiv, isfinite] / ncnt[isfinite]
+                var2 = np.square(sum_x[isfinite] / ncnt[isfinite])
+                vari[iiv, isfinite] = var1 - var2
+    return vari
+        
+def calc_correlation(ncnt, sum_x, sum_y, sum_xy, sum_x2, sum_y2):
+    if ( isinstance(ncnt, int) or isinstance(ncnt, float) ):
+        rcorr = 0
+        if ( ncnt > 1 ):
+            rnum = ncnt * sum_xy - sum_x * sum_y
+            rden = np.sqrt((ncnt*sum_x2-(sum_x)**2)*(ncnt*sum_y2-(sum_y)**2))
+            rcorr = rnum / rden
+    elif ( isinstance(ncnt, np.ndarray) ):
+        nd = 0
+        if ( sum_x.ndim == 3 ): 
+            nx, ny, nv = sum_x.shape
+            pass  # not configured yet
+        if ( sum_x.ndim == 4 ): 
+            nx, ny, nv, nd = sum_x.shape
+            rcorr = 0.0 * sum_x
+            isfinite = np.where(ncnt > 1 )  # NEED AT LEAST TWO POINTS FOR CORRELATOIN
+            for iiv in range(nv):
+                for iid in range(nd):
+                    iii_sum_xy = sum_xy[:,:,iiv,iid]
+                    iii_sum_x = sum_x[:,:,iiv,iid]
+                    iii_sum_y = sum_y[:,:,iiv,iid]
+                    iii_sum_x2 = sum_x2[:,:,iiv,iid]
+                    iii_sum_y2 = sum_y2[:,:,iiv,iid]
+                    iii_rcorr = rcorr[:,:,iiv,iid]
+                    rnum1 = np.multiply(ncnt[isfinite], iii_sum_xy[isfinite])
+                    rnum2 = np.multiply(iii_sum_x[isfinite], iii_sum_y[isfinite])
+                    rnum = rnum1 - rnum2
+                    rden1 = np.multiply( ncnt[isfinite], iii_sum_x2[isfinite]) - np.square(iii_sum_x[isfinite])
+                    rden2 = np.multiply( ncnt[isfinite], iii_sum_y2[isfinite]) - np.square(iii_sum_y[isfinite])
+                    rden = np.multiply( np.sqrt(rden1) , np.sqrt(rden2) )
+                    nozero = np.where(rden > 0 )
+                    noz_rcorr = iii_rcorr[isfinite]
+                    noz_rcorr[nozero] = rnum[nozero] / rden[nozero]
+                    iii_rcorr[isfinite] = noz_rcorr
+                    #print(np.all(iii_rcorr[isfinite][nozero] == noz_rcorr[nozero]))
+                    #iii_rcorr[isfinite][nozero] = rnum[nozero] / rden[nozero]
+                    #print(np.all(iii_rcorr[isfinite][nozero] == noz_rcorr[nozero]))
+                    rcorr[:,:,iiv,iid] = iii_rcorr
+        if ( sum_x.ndim == 2 ): 
+            nv, nt = sum_x.shape
+            rcorr = 0.0 * sum_x
+            isfinite = np.where(ncnt > 1 )  # NEED AT LEAST TWO POINTS FOR CORRELATION
+            for iiv in range(nv):
+                rnum1 = np.multiply(ncnt[isfinite], sum_xy[iiv, isfinite])
+                rnum2 = np.multiply(sum_x[iiv, isfinite], sum_y[iiv, isfinite])
+                rnum = rnum1 - rnum2
+                rden1 = np.multiply( ncnt[isfinite], sum_x2[iiv, isfinite]) - np.square(sum_x[iiv, isfinite])
+                rden2 = np.multiply( ncnt[isfinite], sum_y2[iiv, isfinite]) - np.square(sum_y[iiv, isfinite])
+                rden = np.multiply( np.sqrt(rden1) , np.sqrt(rden2) )
+                nozero = np.where(rden > 0 )
+                noz_rcorr = rcorr[iiv, isfinite]
+                noz_rcorr[nozero] = rnum[nozero] / rden[nozero]
+                rcorr[iiv, isfinite] = noz_rcorr
+        if ( sum_x.ndim == 1 ): 
+            nt = sum_x.shape[0]
+            rcorr = 0.0 * sum_x
+            isfinite = np.where(ncnt > 1 )  # NEED AT LEAST TWO POINTS FOR CORRELATION
+            rnum1 = np.multiply(ncnt[isfinite], sum_xy[isfinite])
+            rnum2 = np.multiply(sum_x[isfinite], sum_y[isfinite])
+            rnum = rnum1 - rnum2
+            rden1 = np.multiply( ncnt[isfinite], sum_x2[isfinite]) - np.square(sum_x[isfinite])
+            rden2 = np.multiply( ncnt[isfinite], sum_y2[isfinite]) - np.square(sum_y[ isfinite])
+            rden = np.multiply( np.sqrt(rden1) , np.sqrt(rden2) )
+            nozero = np.where(rden > 0 )
+            noz_rcorr = rcorr[isfinite]
+            noz_rcorr[nozero] = rnum[nozero] / rden[nozero]
+            rcorr[isfinite] = noz_rcorr
+    return rcorr
+
+#FIELDS=(obser_padded, field, varobs, varfld, covari, merror, sqrerr, abserr)
+def find_analysis_errors(date_range, expt, variable, insuffix='GIOPS_orca025_currents.f2', ierror=1, ddeg=4.0, mp=True):
+
+    date_start = date_range[0]
+    date_final = date_range[1]
+    date_inc = 1
+    if ( len(date_range) == 3 ): date_inc = date_range[3]
+    if ( len(date_range) > 3 ): 
+        date_list = [check_date(idate,outtype=datetime.datetime) for idate in date_range]
+    else:
+        dates_list = create_dates(date_start, date_final, date_inc)
+        
+    (LONG, LATG), MNS_FIELDS, GDS_FIELDS, GCS, CNS = Class4Current.loop_analysis_dates(dates_list, expt, variable, insuffix=insuffix, ierror=ierror, ddeg=ddeg, mp=mp)
+
+    MNA_FIELDS = calc_mean_field(MNS_FIELDS, GCS)
+    GDA_FIELDS = calc_mean_field(GDS_FIELDS, CNS)
+
+    sum_obs, sum_fld,  var_obs, var_fld, cov_obs_fld = get_correlation_fields(MNS_FIELDS)
+    grd_sum_obs, grd_sum_fld, grd_var_obs, grd_var_fld, grd_cov_obs_fld = get_correlation_fields(GDA_FIELDS)
+
+    RCORR = calc_correlation(GCS, sum_obs, sum_fld, cov_obs_fld, var_obs, var_fld)
+    tVAROB = calc_variance(GCS, sum_obs, var_obs)
+    tVARFD = calc_variance(GCS, sum_fld, var_fld)
+    VAROB = MNA_FIELDS[2] - np.square(MNA_FIELDS[0])
+    VARFD = MNA_FIELDS[3] - np.square(MNA_FIELDS[1])
+    print('CHECK VARIANCE', VAROB-tVAROB, VARFD-tVARFD)
+    SCORR = ( MNA_FIELDS[5] - VAROB - VARFD ) / (2*np.sqrt(VAROB)*np.sqrt(VARFD)) 
+    print('CHECK CORRELATION', RCORR - SCORR )
+    GRD_RCORR = calc_correlation(CNS, grd_sum_obs, grd_sum_fld, grd_cov_obs_fld, grd_var_obs, grd_var_fld)
+
+    FIELDN=('observations', 'model equiv', 'obs var', 'mod var', 'cov obs var', 'mean error', 'rmse', 'abs error')
+    print('GLOBAL MEANS')
+    for ierr in range(len(MNA_FIELDS)):
+       if ( FIELDN[ierr] == 'rmse' ):
+           print(FIELDN[ierr], MNA_FIELDS[ierr], np.sqrt(MNA_FIELDS[ierr]))
+       else:
+           print( FIELDN[ierr], MNA_FIELDS[ierr])  
+
+    return  MNA_FIELDS, GDA_FIELDS, RCORR, GRD_RCORR
+    
+def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_orca025_currents.f2','GIOPS_orca025_currents.f2'] , ierror=1, ddeg=4.0, mp=True, maxtaylor=1.0):
+
+    if ( not labels ): labels=expts
+    expt0 = expts[0]
+    expt1 = expts[1]
+
+    insuffix0 = insuffixs[0]
+    insuffix1 = insuffixs[1]
+    
+    dayofweek = check_date(date_range[0], outtype=datetime.datetime).weekday() 
+    if ( dayofweek == 1 ):
+        pass
+    else:
+        print('BEST if START DAY IS A TUESDAY')
+        print('BEST_ESTIMATE ONLY ON TUESDAY')
+    andiff = ( 1-dayofweek ) % 7
+    date_atart = check_date(date_range[0], outtype=datetime.datetime)+datetime.timedelta(days=andiff)
+    date_start = date_range[0]
+    date_final = date_range[1]
+    date_inc = 1
+    if ( len(date_range) == 3 ): date_inc = date_range[3]
+    if ( len(date_range) > 3 ): 
+        dates_list = [check_date(idate,outtype=datetime.datetime) for idate in date_range]
+    else:
+        dates_list = create_dates(date_start, date_final, date_inc)
+    dates_last = create_dates(date_atart, dates_list[-1], 7)
+
+    MNA_LIST = []
+    GDA_LIST = []
+    CNS_LIST = []
+    TAY_LIST = []  # obs_var, fld_var, corr, sqr_err
+    
+    FIELDN=('observations', 'model equiv', 'obs var', 'mod var', 'cov obs var', 'mean error', 'sqr err', 'abs error', 'corr')
+    TAYLOR=('obs var', 'mod var', 'corr', 'sqr err')
+    for iexpt, expt in enumerate(expts):
+      for variable in ['init_estimate', 'best_estimate']:
+        dates_this = dates_list
+        if ( variable == 'best_estimate'): dates_this=dates_last
+        
+        (LONG, LATG), MNS_FIELDS, GDS_FIELDS, GCS, CNS = loop_analysis_dates(dates_this, expt, variable, insuffix=insuffixs[iexpt], ierror=ierror, ddeg=ddeg, mp=mp)
+
+        MNA_FIELDS = calc_mean_field(MNS_FIELDS, GCS)
+        GDA_FIELDS = calc_mean_field(GDS_FIELDS, CNS)
+
+        sum_obs, sum_fld,  var_obs, var_fld, cov_obs_fld = get_correlation_fields(MNS_FIELDS)
+        grd_sum_obs, grd_sum_fld, grd_var_obs, grd_var_fld, grd_cov_obs_fld = get_correlation_fields(GDA_FIELDS)
+
+        RCORR = calc_correlation(GCS, sum_obs, sum_fld, cov_obs_fld, var_obs, var_fld)
+        GRD_RCORR = calc_correlation(CNS, grd_sum_obs, grd_sum_fld, grd_cov_obs_fld, grd_var_obs, grd_var_fld)
+        MNA_FIELDS.append(RCORR)
+        GDA_FIELDS.append(GRD_RCORR)
+        MNA_LIST.append(MNA_FIELDS)
+        GDA_LIST.append(GDA_FIELDS)
+        CNS_LIST.append(CNS)
+        TAY_LIST.append([ MNA_FIELDS[FIELDN.index(taylor_element)] for taylor_element in TAYLOR ])
+
+        print(expt+' '+variable+' GLOBAL MEANS')
+        for ierr in range(len(MNA_FIELDS)):
+            if ( FIELDN[ierr] == 'sqr err' ):
+                print('rmse', MNA_FIELDS[ierr], np.sqrt(MNA_FIELDS[ierr]))
+            else:
+                print( FIELDN[ierr], MNA_FIELDS[ierr])  
+
+    TAYLOR_LIST = []
+    LABEL_LIST = []
+    COLOR_LIST = []
+
+    VARN = ['U', 'V']
+    vari = ['init','best']
+    clrs_expt = ['red', 'magenta', 'blue', 'cyan']
+    for iexpt in range(len(expts)):
+      for ivari in range(len(vari)):
+        ielem=2*iexpt+ivari
+        TAY_ELE = TAY_LIST[ielem]
+        for ifld in range(2):
+            taylor_points = [TAY_PTS[ifld,0] for TAY_PTS in TAY_ELE] 
+            print(expts[iexpt], vari[ivari], VARN[ifld], 'taylor points', taylor_points)
+            TAYLOR_LIST.append(taylor_points)
+            variable = vari[ivari] 
+            if ( variable == 'best' ):
+               variable = 'Analysis'
+            elif ( variable == 'init' ):
+               variable = 'Trial'   
+            LABEL_LIST.append(labels[iexpt]+' '+variable+' '+VARN[ifld])
+            COLOR_LIST.append(clrs_expt[ielem])
+
+    dates_string = check_date(dates_list[0], outtype=str)+'_'+check_date(dates_list[-1], outtype=str)
+    expts_string = expts[0]+'_'+expts[1]
+    outfile = 'ANAL_plots/'+ 'taylor'+'_'+expts_string+'_'+dates_string
+    taylor_diagram.make_taylor_figure( TAYLOR_LIST, LABEL_LIST, 
+         list_of_colors=COLOR_LIST, pltfile=outfile, maxlim=maxtaylor )    
+    outfile = 'ANAL_plots/'+ 'taylorzoom'+'_'+expts_string+'_'+dates_string
+    taylor_diagram.make_taylor_figure( TAYLOR_LIST, LABEL_LIST, 
+         list_of_colors=COLOR_LIST, pltfile=outfile, maxlim='auto', addvalues=True )    
+
+    #FIELDN=('observations', 'model equiv', 'obs var', 'mod var', 'cov obs var', 'mean error', 'sqr err', 'abs error', 'corr')
+    # want 6 & 8 (sqr err / corr)
+    
+    GDA_PLOT = []
+    GLB_SUMP = []
+    for iplot in range(len(GDA_LIST)):
+        GDA_PLOT.append([GDA_LIST[iplot][6], GDA_LIST[iplot][8]])
+        GLB_SUMP.append([MNA_LIST[iplot][6], MNA_LIST[iplot][8]])
+        
+    GDA_RMSE = []
+    GDA_CORR = []
+    GLB_RMSE = []
+    GLB_CORR = []
+    # GDA_PLOT index 0, 1 (init/best, expt 1); 2, 3 (init/best, expt 2)
+    for ielem in range(2):
+        print( 'bin count_check', np.all(CNS_LIST[0] == CNS_LIST[2]), np.all(CNS_LIST[1] == CNS_LIST[3]) )
+        if ( ielem == 0 ):
+            GDA_RMSE.append( np.sqrt(GDA_PLOT[0][ielem]) - np.sqrt(GDA_PLOT[2][ielem]) )
+            GDA_RMSE.append( np.sqrt(GDA_PLOT[1][ielem]) - np.sqrt(GDA_PLOT[3][ielem]) )
+            GLB_RMSE.append( [np.sqrt(GLB_SUMP[0][ielem]), np.sqrt(GLB_SUMP[2][ielem])] )
+            GLB_RMSE.append( [np.sqrt(GLB_SUMP[1][ielem]), np.sqrt(GLB_SUMP[3][ielem])] )
+        else:
+            GDA_CORR.append( GDA_PLOT[0][ielem] - GDA_PLOT[2][ielem] )
+            GDA_CORR.append( GDA_PLOT[1][ielem] - GDA_PLOT[3][ielem] )
+            GLB_CORR.append( [ GLB_SUMP[0][ielem], GLB_SUMP[2][ielem]] )
+            GLB_CORR.append( [ GLB_SUMP[1][ielem], GLB_SUMP[3][ielem]] )
+
+    CMAP = cmap_full_field
+    AMAP = cmap_anom_field
+    for ivari in range(len(vari)):
+        for ifld in range(len(VARN)):
+            grd_rmse = GDA_RMSE[ivari][:,:, ifld, 0]    
+            grd_corr = GDA_CORR[ivari][:,:, ifld, 0] 
+            glb_rmse = [GLB_RMSE[ivari][iexpt][ifld] for iexpt in range(len(expts))]
+            glb_corr = [GLB_CORR[ivari][iexpt][ifld] for iexpt in range(len(expts))]
+            print('glb_corr, glb_rmse', glb_corr, glb_rmse)
+            print('GLB_CORR, GLB_RMSE', GLB_CORR, GLB_RMSE)
+            print('GLB_CORR', GLB_CORR[ivari][ifld][:], [GLB_CORR[ivari][iexpt][ifld] for iexpt in range(2)])
+            rcor_str0 = " (%.4f)" % glb_corr[0]
+            rmse_str0 = " (%.4f)" % glb_rmse[0]
+            rcor_str1 = " (%.4f)" % glb_corr[1]
+            rmse_str1 = " (%.4f)" % glb_rmse[1]
+            maxrmse = np.max(np.abs(grd_rmse))
+            maxcorr = np.max(np.abs(grd_corr))
+            LEV_UNIT = np.array([-0.9, -0.7, -0.5, -0.3, -0.1, 0.1, 0.3, 0.5, 0.7, 0.9])
+            TIC_UNIT = np.array([-1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
+            LEV_RMSE = maxrmse*LEV_UNIT
+            LEV_CORR = maxcorr*LEV_UNIT
+            LEV_CORR = 0.1*LEV_UNIT
+            LEV_RMSE = 0.05*LEV_UNIT
+            TIC_CORR = 0.1*TIC_UNIT
+            TIC_RMSE = 0.05*TIC_UNIT
+            print(ivari, ifld, type(grd_rmse), type(grd_corr))
+            print(ivari, ifld, grd_rmse.shape, grd_corr.shape)
+            print(LONG.shape, LATG.shape) 
+            print('MAX', maxrmse, maxcorr)  
+
+            title='RMSE difference '+labels[0]+rmse_str0+' - '+labels[1]+rmse_str1+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'rmse'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, grd_rmse, levels=LEV_RMSE, ticks=TIC_RMSE, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=AMAP)
+            title='rcorr difference '+labels[0]+rcor_str0+' - '+labels[1]+rcor_str1+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'corr'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, grd_corr, levels=LEV_CORR,ticks=TIC_CORR,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=AMAP)
+        
+    
+    
+    return  MNA_LIST, GDA_LIST
+
+#FIELDS=(obser_padded, field, varobs, varfld, covari, merror, sqrerr, abserr, cnt)
+def plot_anal_timeseries(expts, labels=None, date_range=None, filepre='ANAL_plots/timeseries', colors=['r','b','m','c']):
+    date_min=None
+    date_max=None
+    if ( date_range ):
+        (date_min, date_max) = [check_date(date, outtype=datetime.datetime) for date in date_range]
+        
+    if ( not labels ):
+       labels=expts[:]
+
+    plots=[]
+    for variable in ['init', 'best']:
+        for fld in ['U', 'V']:
+            fig, axe = plt.subplots(3)
+            addtitle=' '+variable+' '+fld
+            axe[0].set_title('Mean Error'+addtitle)
+            axe[1].set_title('RMSE Error'+addtitle)
+            axe[2].set_title('Correlation'+addtitle)
+            plots.append([fig, axe])
+        
+        
+    for iexpt, expt in enumerate(expts):
+        iplot=-1
+        label=labels[iexpt]
+        color=colors[iexpt%len(colors)]
+        for variable in ['init_estimate', 'best_estimate']:
+            for fld in ['U', 'V']: 
+                iplot=iplot+1
+                fig, axe = plots[iplot]
+                errfile='ANAL_data/'+fld+'_'+variable+'_'+expt+'.dat'
+                print(errfile)
+                intdate, errors = datadatefile.read_file(errfile)
+                dates = datadatefile.convert_strint_datelist(intdate)
+
+                if ( date_range ):
+                    new_dates=[]
+                    new_errors=[]
+                    (date_min, date_max) = date_range  
+                    for idate,date in enumerate(dates):
+                        if ( ( date >= date_min ) and (date <= date_max ) ):
+                            new_dates.append(date)
+                            new_errors.append(errors[:,idate])
+                    dates = new_dates
+                    errors = np.transpose( np.array(new_errors) )  # np.array will flip the time, variable indices.
+                    print(len(dates))
+                    
+                cnt=errors[-1]
+                mne_error, sqr_error, one_error = calc_mean_field(errors, cnt)[[5,6,8],:]
+                print(1, '==', np.mean(one_error), '?')
+                rms_error = np.sqrt(sqr_error)
+                sum_obs, sum_fld,  var_obs, var_fld, cov_obs_fld =  get_correlation_fields(errors)
+                rcorr = calc_correlation(cnt, sum_obs, sum_fld, cov_obs_fld, var_obs, var_fld) 
+                
+                axe[0].plot(dates, mne_error, color=color)
+                axe[1].plot(dates, rms_error, color=color)
+                axe[2].plot(dates, rcorr, label=label, color=color)
+
+    iplot = -1
+    for variable in ['init', 'best']:
+        for fld in ['U', 'V']:
+            filename=filepre+'_'+variable+'_'+fld
+            iplot = iplot+1
+            fig, axe = plots[iplot]
+            axe[2].legend()
+            fig.savefig(filename+'.pdf')
+            fig.savefig(filename+'.png')
+            plt.close(fig)
+       
+    return
+        
+def make_error_grid( NSHAPE, ddeg=4 ):
+   grid_lon, grid_lat, lon_bin, lat_bin, grid_sum, grid_cnt = cplot.make_bin_grid(ddeg=ddeg, central_longitude=0)
+   nlon, nlat = grid_sum.shape
+   grid = np.zeros( (nlon, nlat)+NSHAPE[1:] )
+   return (grid_lon, grid_lat), grid, grid_cnt
+
 def make_error_grids( NSHAPE, ddeg=4 ):
    numobs, numvars, numfcsts, numdeps = NSHAPE
-   grid_lon, grid_lat, lon_bin, lat_bin, grid_sum, grid_cnt = cplot. make_bin_grid(ddeg=ddeg, central_longitude=0)
+   grid_lon, grid_lat, lon_bin, lat_bin, grid_sum, grid_cnt = cplot.make_bin_grid(ddeg=ddeg, central_longitude=0)
    nlon, nlat = grid_sum.shape
    grd_beste = np.zeros(( nlon, nlat, numvars, numdeps ))
    grd_inite = np.zeros(( nlon, nlat, numvars, numdeps ))
@@ -2170,6 +2830,44 @@ def add_error_grids( LONLAT, ERRORS, GRDS, CNT, ddeg=4):
     
     return (LONG, LATG), (Gbeste, Ginite, Gfcstv, Gpersi), CNT
 
+def add_error_grid_list( LONLAT, error_list, egrid_list, cnt, ddeg=4):
+    LON, LAT = LONLAT
+    ngrid_list = []
+    for ierror, error in enumerate(error_list):
+        egrid = egrid_list[ierror]
+        (LONG, LATG), iegrid, icnt = add_error_grid( LONLAT, error, egrid, cnt, ddeg=ddeg)
+        ngrid_list.append(iegrid)
+        if ( ierror == 0 ): ncnt=icnt
+    return (LONG, LATG), ngrid_list, ncnt       
+        
+def add_error_grid( LONLAT, error, egrid, cnt, ddeg=4):
+    LON, LAT = LONLAT
+    
+    ndims=error.ndim
+    if ( ndims == 3 ):
+        nobs, nvars, nlevs = error.shape
+    if ( ndims == 4 ):
+        nobs, nvars, nfcst, nlevs = error.shape
+    if ( ndims == 5 ):
+        nobs, nvars, nfcst, nensm, nlevs = error.shape
+
+    for iobs in range(nobs):
+        LONG, LATG, __, wgt = cplot.binfldsum(np.array([LON[iobs]]),np.array([LAT[iobs]]), np.ones(1), ddeg=ddeg)
+        cnt = cnt + wgt
+        for ivars in range(nvars):
+            for ilevs in range(nlevs):
+                if ( ndims == 3 ):
+                    egrid[:, :, ivars, ilevs] = egrid[:, :, ivars, ilevs] + wgt*error[iobs, ivars, ilevs]
+                else:
+                    for ifcst in range(nfcst):
+                        if ( ndims == 4 ):
+                            egrid[:,:,ivars,ifcst,ilevs] = egrid[:,:,ivars,ifcst,ilevs] + wgt*error[iobs, ivars, ifcst, ilevs]
+                        else:
+                            for iensm in range(nensm):
+                                egrid[:,:,ivars,ifcst,iensm,ilevs] = egrid[:,:,ivars,ifcst,iensm, ilevs] + wgt*error[iobs, ivars, ifcst, iensm, ilevs]
+    
+    return (LONG, LATG), egrid, cnt
+
 def fin_error_grids( GRDS, CNT, ddeg=4):
     
     (Gbeste, Ginite, Gfcstv, Gpersi) = GRDS
@@ -2188,6 +2886,32 @@ def fin_error_grids( GRDS, CNT, ddeg=4):
                 Gpersi[:,:,ivars,ifcst,ilevs] = Gpersi[:,:,ivars,ifcst,ilevs]/NCNT
     
     return (Gbeste, Ginite, Gfcstv, Gpersi)
+
+def fin_error_grid( grid, cnt ):
+    
+    if ( grid.ndim == 4 ):
+        nlon, nlat, nvars, nlevs = grid.shape
+    if ( grid.ndim == 5 ):
+        nlon, nlat, nvars, nfcst, nlevs = grid.shape
+    if ( grid.ndim == 6 ):
+        nlon, nlat, nvars, nfcst, nlevs = grid.shape
+
+    izer = np.where(cnt == 0)
+    ncnt = cnt.copy()
+    ncnt[izer] = 1.0   
+    for ivars in range(nvars):
+        for ilevs in range(nlevs):
+            if ( grid.ndim == 4 ):
+                grid[:,:,ivars,ilevs] = grid[:,:,ivars,ilevs]/ncnt
+            else:
+                for ifcst in range(nfcst):
+                    if ( grid.ndim == 5 ):
+                        grid[:,:,ivars,ifcst,ilevs] = grid[:,:,ivars,ifcst,ilevs]/ncnt
+                    else:
+                        for iensm in range(nensm):
+                            grid[:,:,ivars,ifcst,iensm,ilevs] = grid[:,:,ivars,ifcst,iensm,ilevs]/NCNT
+    
+    return grid
 
 indir='CLASS4_currents_CCMEP_FILT2'
 insuffix='GIOPS_orca025_currents-filter'

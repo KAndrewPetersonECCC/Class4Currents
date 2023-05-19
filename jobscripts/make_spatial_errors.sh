@@ -1,5 +1,5 @@
 #!/bin/bash
-# ord_soumet /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/make_spatial_errors.sh -cpus 1 -mpi -cm 64000M -t 10800 -shell=/bin/bash
+# ord_soumet /fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/make_spatial_errors.sh -cpus 1 -mpi -cm 64000M -t 10800 -shell=/bin/bash
 #bash /fs/homeu1/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/make_spatial_erros.sh
 
 USAGE="USAGE:  date_Class4Currents.sh --begin=CCYYMMDD --end=CCYYMMDD"

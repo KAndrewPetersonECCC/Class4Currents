@@ -57,6 +57,8 @@ def convert_strint_date(date_str):
 def read_file(file='datafile.dat'):
     if ( not os.path.isfile(file) ):
         print('File does not exist, ', file)
+        print('Create file')
+        with open(file, mode='a'): pass
         return [], []
     try:
         alldata = np.loadtxt(file, unpack=True) 
@@ -97,39 +99,37 @@ def read_date_and_boolean(file='datafile.dat'):
     
     
 def write_file(dates, datas, file='datafile.dat'):
-    f = open(file, 'w')
-    nv, nt = datas.shape
-    for idate in range(nt):
-        if ( len(str(dates[idate])) == 8 ):
-           f.write("%8d" % dates[idate])
-        if ( len(str(dates[idate])) == 10 ):
-           f.write("%10d" % dates[idate])
-        if ( len(str(dates[idate])) == 12 ):
-           f.write("%12d" % dates[idate])
-        if ( len(str(dates[idate])) == 14 ):
-           f.write("%14d" % dates[idate])
-        for iv in range(nv):
-            f.write(" %g" % datas[iv, idate])
-        f.write("\r\n")
-    f.close()
+    with open(file, 'w') as f:
+        nv, nt = datas.shape
+        for idate in range(nt):
+            if ( len(str(dates[idate])) == 8 ):
+                f.write("%8d" % dates[idate])
+            if ( len(str(dates[idate])) == 10 ):
+                f.write("%10d" % dates[idate])
+            if ( len(str(dates[idate])) == 12 ):
+                f.write("%12d" % dates[idate])
+            if ( len(str(dates[idate])) == 14 ):
+                f.write("%14d" % dates[idate])
+            for iv in range(nv):
+                f.write(" %g" % datas[iv, idate])
+            f.write("\r\n")
     return     
     
 def write_date_and_boolean(dates, boole, file='datafile.dat'):
-    f = open(file, 'w')
-    nv, nt = boole.shape
-    for idate in range(nt):
-        if ( len(str(dates[idate])) == 8 ):
-           f.write("%8d" % dates[idate])
-        if ( len(str(dates[idate])) == 10 ):
-           f.write("%10d" % dates[idate])
-        if ( len(str(dates[idate])) == 12 ):
-           f.write("%12d" % dates[idate])
-        if ( len(str(dates[idate])) == 14 ):
-           f.write("%14d" % dates[idate])
-        for iv in range(nv):
-            f.write(" %1d" % boole[iv, idate].astype(int))
-        f.write("\r\n")
-    f.close()
+    with open(file, 'w') as f:
+        nv, nt = boole.shape
+        for idate in range(nt):
+            if ( len(str(dates[idate])) == 8 ):
+                f.write("%8d" % dates[idate])
+            if ( len(str(dates[idate])) == 10 ):
+                f.write("%10d" % dates[idate])
+            if ( len(str(dates[idate])) == 12 ):
+                f.write("%12d" % dates[idate])
+            if ( len(str(dates[idate])) == 14 ):
+                f.write("%14d" % dates[idate])
+            for iv in range(nv):
+                f.write(" %1d" % boole[iv, idate].astype(int))
+            f.write("\r\n")
     return     
     
 def write_2dates_file(dates1, dates2, datas, file='datafile.dat'):
@@ -149,10 +149,9 @@ def write_2dates_file(dates1, dates2, datas, file='datafile.dat'):
     return     
     
 def write_integer_to_file(n, file='datafile.dat'):
-    f = open(file, 'w')
-    f.write("%3d" % n)
-    f.write("\r\n")
-    f.close()
+    with open(file, 'w') as f:
+        f.write("%3d" % n)
+        f.write("\r\n")
     return     
 
 def read_integer_from_file(file='datafile.dat'):
