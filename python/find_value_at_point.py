@@ -1,7 +1,6 @@
 import numpy as np
         
 import scipy.interpolate
-#import geopy.distance
 import rpnpy.librmn.all as rmn
 
 import os
@@ -186,29 +185,3 @@ def find_nearest_point_list(lon_list, lat_list, lon_grid, lat_grid, mp=False):
         lat_pt=lat_list[ipt]
         IJPTS.append( find_nearest_point(lon_pt, lat_pt, lon_grid, lat_grid) )
     return IJPTS
-
-def grid_geopy_distance(lon_pt, lat_pt, lon_grid, lat_grid):
-    nx, ny = lon_grid.shape
-    distance_grid = np.zeros((nx,ny))
-    distance_min = 40e6 # circumference of earth in metres ( minimum distance SHOULD be smaller than this!) 
-    for ix in range(nx):
-        for iy in range(ny):
-            #distance_pt = geopy.distance.distance((lat_grid[ix,iy],lon_grid[ix,iy]),(lat_pt, lon_pt)).m
-            distance_pt = 0  #THIS OBVIOUSLY DOES NOT WORK
-            if ( distance_pt < distance_min ):
-                distance_min = distance_pt
-                imin = ix
-                jmin = iy
-            distance_grid[ix,iy] = distance_pt
-    return distance_grid, distance_min, imin, jmin
-
-def find_nearest_geopt(lon_pt, lat_pt, lon_grid, lat_grid):
-    ## lon: 0 -> 360
-    ## lat: -90 -> 90
-
-    min_distance=[]
-    icc = []
-    jcc = []
-    distance_grid, distance_min, imin, jmin = grid_geopy_distance(lon_pt, lat_pt, lon_grid, lat_grid)
-    return imin, jmin
-

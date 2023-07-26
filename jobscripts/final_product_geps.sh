@@ -10,7 +10,7 @@ HDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 
 cd ${WDIR}
 
-SDATE=2023????
+SDATE=202304?? 
 FFS=(f2)
 
 SOURCE=CLASS4_currents_GEPS_FILT
@@ -22,10 +22,10 @@ for FF in ${FFS[*]} ; do
     f4) dest=FILT4 ;;
   esac
   case ${FF} in
-    f1) suff="-filter" ;;
-    f2) suff="-filter" ;;
-    f3) suff="-filter" ;;
-    f4) suff"=-filter" ;;
+    f1) suff="-filtr" ;;
+    f2) suff="-filtr" ;;
+    f3) suff="-filtr" ;;
+    f4) suff"=-filtr" ;;
   esac
   
   DEST=CLASS4_currents_GEPS_${dest}
