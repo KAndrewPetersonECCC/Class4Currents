@@ -5,7 +5,9 @@ WDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 USAGE="USAGE:  date_Class4Currents.sh -s=CCYYMMDD -f=CCYYMMDD"
 
 NDAYS=0
+ORIG=True
 GEPS=False
+GIOP=False
 ENAN=False
 ANAL=False
 ASSG=False
@@ -54,14 +56,22 @@ case $i in
     ;;
     -g|--geps)
     GEPS=True
+    ORIG=False
+    shift # past argument=value
+    ;;
+    -z|--giops|--GIOPS)
+    GIOP=True
+    ORIG=False
     shift # past argument=value
     ;;
     -A|--ENAN|--Ensemble_Analysis|--EA)
     ENAN=True
+    ORIG=False
     shift # past argument=value
     ;;
     --anal|--only_analysis|--analysis)
     ANAL=True
+    ORIG=False
     shift # past argument=value
     ;;
     -F=*|--forecast=*|--fcst=*)
@@ -78,10 +88,12 @@ case $i in
     ;;
     -a|--assemble|--assemble_geps)
     ASSG=True
+    ORIG=False
     shift # past argument=value
     ;;
     -b|--assembleEA|--assemble_ensemble|--EB)
     ASEA=True
+    ORIG=False
     shift # past argument=value
     ;;
     -i|--ignore)
@@ -129,10 +141,14 @@ while [[ ${THISTIME} -le ${FINALTIME} ]] ; do
     NEXTTIME=$(date -u --date ${NEXT} +%s)
     if [[ ${ZERO} == True ]];  then
         echo "Submitting Zeroth Job"
-	    if [[ ${GEPS} == False && ${ASSG} == False && ${ENAN} == False && ${ASEA} == False && ${ANAL} == False ]]; then 
+        if [[ ${ORIG} == True ]]; then
 	        echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT} -s"
 	        bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT} -s
 	    fi
+        if [[ ${GIOP} == True ]] ; then 
+	        echo "jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT} -s"
+            bash ${WDIR}/jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT} -s
+        fi
 	    if [[ ${GEPS} == True ]] ; then 
 	        for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
 	            echo "jobscripts/GEPS_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT} -s"
@@ -162,9 +178,14 @@ while [[ ${THISTIME} -le ${FINALTIME} ]] ; do
         echo "Preparing Other Jobs"
         if [[ ${NEXTTIME} -le ${FINALTIME} ]]; then 
             echo "${GEPS} == False  ${ASSG} == False ${ENAN} == False  ${ASEA} == False ${ANAL} == False"
-	        if [[ ${GEPS} == False && ${ASSG} == False  && ${ENAN} == False && ${ASEA} == False && ${ANAL} == False ]] ; then 
+	        #if [[ ${GEPS} == False && ${ASSG} == False  && ${ENAN} == False && ${ASEA} == False && ${ANAL} == False ]] ; then 
+            if [[ ${ORIG} == True ]]; then
 	            echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT}"
                 bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT}
+            fi
+            if [[ ${GIOP} == True ]] ; then 
+	            echo "jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT}"
+                bash ${WDIR}/jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT}
             fi
  	        if [[ ${GEPS} == True ]] ; then 
 	            for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 

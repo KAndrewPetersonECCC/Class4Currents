@@ -5,5 +5,5 @@ exclure(-1,['TM','UUW','VVW'], -1, -1, 26314400, -1, -1)
 desire(-1,['^^'])
 desire(-1,['>>'])
 desire(-1,['^>'])
-desire(-1,['TM','UUW','VVW'],-1,-1,-1,-1,-1)
+desire(-1,['TM','UUW','VVW','UU2W','VV2W'],-1,-1,-1,-1,-1)
 EOF

@@ -134,9 +134,23 @@ else:
         # NEED TO ADD NON FILTER OPTIONS.
         t0 = time.time()
         if not ${ENAN}:
-            Class4Current.assemble_ensemble_date(date, obspre='CLASS4_currents_GEPS_FILT/class4', obssuf='GEPS_orca025_currents', iters=['f1','f2'], nens=21, clobber=True)
+            if ${FILTER}:
+                Class4Current.assemble_ensemble_date(date, obspre='CLASS4_currents_GEPS_FILT/class4', obssuf='GEPS_orca025_currents', iters=['f1','f2'], nens=21, clobber=True)
+            else:
+               Class4Current.assemble_ensemble_date(date, obspre='CLASS4_currents_GEPS_UFIL/class4', obssuf='GEPS_orca025_currents', iters=['1','2'], nens=21, clobber=True) 
         else:
-            Class4CurrentEA.assemble_ensembleEA_date(date, obspre='CLASS4_currents_ENAN_FILT/class4', obssuf='ENAN_orca025_currents', iters=['f1','f2'], nens=21, clobber=True, expt='${FCEX}')
+            expt='${FCEX}'
+            if ( expt == 'GEPS_STO2X' ): expt='ENAN'
+            if ( expt == 'STO2X' ): expt='ENAN'
+            if ${FILTER}: 
+                obspre='CLASS4_currents_'+expt+'_FILT/class4'
+                obssuf=expt+'_orca025_currents'
+                Class4CurrentEA.assemble_ensembleEA_date(date, obspre=obspre, obssuf=obssuf, iters=['f1','f2'], nens=21, clobber=True)
+            else:
+                obspre='CLASS4_currents_'+expt+'_UFIL/class4'
+                obssuf=expt+'_orca025_currents'
+                Class4CurrentEA.assemble_ensembleEA_date(date, obspre=obspre, obssuf=obssuf, iters=['1','2'], nens=21, clobber=True)
+        te = time.time() - t0
         print("ASSEMBLE SUCCESS:  TIME ELAPSED ", te)
     except:
         print(traceback.format_exc())

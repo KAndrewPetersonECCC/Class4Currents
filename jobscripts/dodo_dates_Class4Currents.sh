@@ -46,3 +46,4 @@ ssh eccc-ppp3 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20210901 -
 ssh eccc-ppp3 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20211101 -f=20211130 ${PLOT} ${FILTER}
 ssh eccc-ppp3 bash -l ${WDIR}/jobscripts/do_date_Class4Currents.sh -s=20220101 -f=20220131 ${PLOT} ${FILTER}
 
+bash /fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents/jobscripts/do_date_Class4Currents.sh --start=2022 --final=${year}${MN}31 --filter --anal --expt=${expt} --ddir=SynObs

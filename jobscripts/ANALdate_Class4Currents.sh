@@ -9,6 +9,9 @@ FILTER=True
 KDIR=/fs/site5/eccc/cmd/e/kch001/maestro_archives/
 DDIR=/fs/site6/eccc/mrd/rpnenv/dpe000/maestro_archives/
 DDRU=/fs/site6/eccc/mrd/rpnenv/dpe000/maestro_archives/
+DSNO=/home/saqu500/data_maestro/ppp5/maestro_archives/SynObs/
+D700=/home/sprj700/data_maestro/ppp6/maestro_archives
+DIC4=/fs/site6/eccc/cmd/e/kch001/maestro_archives/IC4_final_cycles/controle/
 DAT6=/fs/site6/eccc/mrd/rpnenv/dpe000/Class4_Currents
 
 for i in "$@"
@@ -77,6 +80,15 @@ if [[ ${DDIR} == KAMEL ]] ; then
 fi
 if [[ ${DDIR} == DREW ]] ; then
     DDIR=${DDRU}
+fi
+if [[ ${DDIR} == IC4C ]] ; then
+    DDIR=${DIC4}
+fi
+if [[ ${DDIR} == IC4 ]] ; then
+    DDIR=${D700}
+fi
+if [[ ${DDIR} == SynObs ]] ; then
+    DDIR=${DSNO}
 fi
 if [[ ! -d ${DAT6}/${EXPT} ]] ; then 
     mkdir ${DAT6}/${EXPT}

@@ -13,6 +13,7 @@ import find_hall
 geops_dir='/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/GEOPS/GEOPS/python'
 sys.path.insert(0, geops_dir)
 import read_class4
+del sys.path[0]
 
 hall = find_hall.find_hall()
 

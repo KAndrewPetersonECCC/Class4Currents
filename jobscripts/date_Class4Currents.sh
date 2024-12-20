@@ -79,6 +79,7 @@ cat > ${BJOB} << EOJ
 ####${SJOB}
 echo "STARTING JOB for DATE ${DATE}"
 cd ${WDIR}
+. r.load.dot rpn/utils/20220509
 source jobscripts/prepython.sh
 #source activate metcarto
 python ${PJOB}

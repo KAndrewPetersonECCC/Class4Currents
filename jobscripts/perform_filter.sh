@@ -2,7 +2,7 @@
 # ord_soumet /home/dpe000/Class4_Currents/jobscripts/perform_filter.sh -cpus 1 -mpi -cm 64000M -t 3600 -shell=/bin/bash
 
 # LOAD editfst
-. r.load.dot rpn/utils/19.5
+ . r.load.dot rpn/utils/20220509
 
 USAGE="USAGE:  perform_filter.sh -f=filter_file -i=input_standard_file -o=output_standard_file --clobber (overwrite input)"
 CLOBBER=False

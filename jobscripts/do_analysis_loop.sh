@@ -7,6 +7,8 @@ USAGE="USAGE:  GEPSdate_Class4Currents.sh -d=CCYYMMDD"
 
 SUBMIT=False
 SUFF=GIOPS_orca025_currents.f2
+SUFR=GIOPS_orca025_currents.f2
+ENSA="[0,0]"
 
 for i in "$@"
 do
@@ -19,8 +21,20 @@ case $i in
     REFE="${i#*=}"
     shift # past argument=value
     ;;
+    -N=*|--ensemble=*|--ens=*)
+    ENSA="${i#*=}"
+    shift # past argument=value
+    ;;
     -L=*|--label=*)
     LABE="${i#*=}"
+    shift # past argument=value
+    ;;
+    -C=*|--ref_label=*|--reference_label=*)
+    RLAB="${i#*=}"
+    shift # past argument=value
+    ;;
+    --CC)
+    RLAB="ctrl"
     shift # past argument=value
     ;;
     -s=*|--start=*)
@@ -33,6 +47,10 @@ case $i in
     ;;
     -p=*|--prefix=*)
     SUFF="${i#*=}"
+    shift # past argument=value
+    ;;
+    -q=*|--prefix_ref=*)
+    SUFR="${i#*=}"
     shift # past argument=value
     ;;
     -d|--do|--submit)
@@ -70,12 +88,16 @@ if [[ -z ${LABE} ]] ; then
     LABE=${EXPT}
     echo ${LABE}
 fi
+if [[ -z ${RLAB} ]] ; then
+    RLAB=${REFE}
+    echo ${RLAB}
+fi
 
 cd /home/dpe000/Class4_Currents
 source jobscripts/prepython.sh
 
 ASUF=$(echo ${SUFF} | rev | cut -c-2 | rev)
-BASE=JOBS/do_anal_${EXPT}_${REF}_${SATE}_${FATE}_${ASUF}
+BASE=JOBS/do_anal_${EXPT}_${REFE}_${SATE}_${FATE}.${ASUF}
 BJOB=${BASE}.sh
 PJOB=${BASE}.py
 SJOB="ord_soumet ${BJOB} -cpus 80 -mpi -cm 2000M -t 10800 -shell=/bin/bash"
@@ -106,9 +128,15 @@ import Class4Current
 expt = '${EXPT}'
 expt0 = '${REFE}'
 
-dates = Class4Current.create_dates(${SATE}, ${FATE})
+insuffixs=['GIOPS_orca025_currents.f2','GIOPS_orca025_currents.f2']
+insuffixs=['${SUFF}', '${SUFR}']
 
-Class4Current.compare_analysis_errors(dates, [expt, expt0], ['${LABE}', 'ctrl'], maxtaylor=1.0)
+if ( ${SATE} ):
+    dates = Class4Current.create_dates(${SATE}, ${FATE})
+else:
+    dates = None
+
+MNA_LIST, GDA_LIST, MNA_LITT = Class4Current.compare_analysis_errors(dates, [expt, expt0], ['${LABE}', '${RLAB}'], insuffixs=insuffixs, maxtaylor=1.0, ens_axes=${ENSA})
 EOP
 
 if [[ ${SUBMIT} == True ]] ; then 

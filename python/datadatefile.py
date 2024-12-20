@@ -200,10 +200,14 @@ def add_to_file(date, data, file='datafile.dat', tmpfile='Null'):
     nv = len(data)
     if ( len(dates) != 0 ):
         ndv, ndt = datas.shape
+        #print('DATA SHAPES', nv, ndv, ndt)
         if ( nv > ndv ):  # Add columns of zero to fill out data.
             ne = nv-ndv
             zeros = np.zeros((ne,ndt))
             datas=np.append(datas, zeros, axis=0)
+        if ( nv < ndv ):
+            print("Not enough data to fill", nv, ndv)
+            return
     if ( len(dates) == 0 ):
         dates = np.atleast_1d(date)
         datas = np.reshape(np.array(data), (nv,1))
