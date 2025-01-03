@@ -22,6 +22,7 @@ import isoheatcontent
 import find_value_at_point
 import Class4Current
 import find_fcst_file
+import shapiro
 
 KCONV=273.16
 
@@ -151,7 +152,7 @@ def read_manal_file(file, grid='T', timname='time_instant', dates=[]):
     LAT=np.transpose(LAT)
     return FLD, LON,  LAT, lev, DAT
     
-def process_enan_obs(date=tate, ens_list=[0], filter=True, expt='GEPS_STO2X'):
+def process_enan_obs(date=tate, ens_list=[0], filter=True, expt='GEPS_STO2X', nshapiro=0):
 
     nfcst=15
     nenss=len(ens_list)
@@ -160,16 +161,18 @@ def process_enan_obs(date=tate, ens_list=[0], filter=True, expt='GEPS_STO2X'):
     datestr=date.strftime('%Y%m%d')   
 
     EDIR=expt
+    if ( expt == 'ENAN' ): expt='GEPS_STO2X'
     if ( 'GEPS_' in expt):  EDIR=expt.replace('GEPS_','')
     if ( expt == 'GEPS_STO2X' or expt == 'GEPS_STO21' or expt == 'GEPS_STO22' ): EDIR="ENAN" 
+    if ( nshapiro > 0 ): EDIR=EDIR+'_'+str(nshapiro)
     if ( not filter ): 
         obsfile1='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.1.nc'
         obsfile2='CLASS4_currents_CCMEP_UFIL/class4_'+datestr+'_GIOPS_orca025_currents.2.nc'
         oesfile1='CLASS4_currents_'+EDIR+'_UFIL/class4_'+datestr+'_'+EDIR+'_orca025_currents.1.'+ens_str+'.nc'
         oesfile2='CLASS4_currents_'+EDIR+'_UFIL/class4_'+datestr+'_'+EDIR+'_orca025_currents.2.'+ens_str+'.nc'
     elif ( filter ): 
-        obsfile1='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f1.nc'
-        obsfile2='CLASS4_currents_CCMEP_FILT/class4_'+datestr+'_GIOPS_orca025_currents.f2.nc'
+        obsfile1='CLASS4_currents_CCMEP_FILT_OLD/class4_'+datestr+'_GIOPS_orca025_currents.f1.nc'
+        obsfile2='CLASS4_currents_CCMEP_FILT_OLD/class4_'+datestr+'_GIOPS_orca025_currents.f2.nc'
         oesfile1='CLASS4_currents_'+EDIR+'_FILT/class4_'+datestr+'_'+EDIR+'_orca025_currents.f1.'+ens_str+'.nc'  # Nearest neighbour from ORCA025 grid
         oesfile2='CLASS4_currents_'+EDIR+'_FILT/class4_'+datestr+'_'+EDIR+'_orca025_currents.f2.'+ens_str+'.nc'  # Nearest neighbour from 0.2 lat/lon grid.
     OBSFILE_LIST = [obsfile1, obsfile2]
@@ -228,6 +231,11 @@ def process_enan_obs(date=tate, ens_list=[0], filter=True, expt='GEPS_STO2X'):
     [U00F, V00F] = Class4Current.UU_ORCA_to_NE([U00, V00])
     [U15F, V15F] = Class4Current.UU_ORCA_to_NE([U15, V15])
 
+    if ( nshapiro > 0 ):
+        time0s=time.time()
+        [U00F, V00F, U15F, V15F] = do_shapiro(nshapiro, [U00F, V00F, U15F, V15F], mask0)
+        timefs=time.time()-time0s
+        print("TIME FOR SHAPIRO N=", nshapiro, timefs)
     # this actually removes non-ocean points
     (U00m, V00m, U15m, V15m), (LONM, LATM) = Class4Current.msk_flds([U00F, V00F, U15F, V15F], [LONN, LATN], mask0)
     # now grid to lat long
@@ -262,6 +270,11 @@ def process_enan_obs(date=tate, ens_list=[0], filter=True, expt='GEPS_STO2X'):
         [U15,  V15] = Class4Current.calc_m15([UU, VV], e3t, mask)
         [U00F, V00F] = Class4Current.UU_ORCA_to_NE([U00, V00])
         [U15F, V15F] = Class4Current.UU_ORCA_to_NE([U15, V15])
+        if ( nshapiro > 0 ):
+            time0s=time.time()
+            [U00F, V00F, U15F, V15F] = do_shapiro(nshapiro, [U00F, V00F, U15F, V15F], mask0)
+            timefs=time.time()-time0s
+            print("TIME FOR SHAPIRO N=", nshapiro, timefs)
         # this actually removes non-ocean points
         (U00m, V00m, U15m, V15m), (LONM, LATM) = Class4Current.msk_flds([U00F, V00F, U15F, V15F], [LONN, LATN], mask0)
         # now grid to lat long
@@ -315,6 +328,9 @@ def process_enan_obs(date=tate, ens_list=[0], filter=True, expt='GEPS_STO2X'):
             (U15, V15) = Class4Current.calc_u15_from_3hr([file_fcst], vfreq=24, newnorm=True)
           [U15F, V15F] =  Class4Current.UU_ORCA_to_NE([U15, V15])
         
+          # NOT ENOUGH WALLTIME
+          #if ( nshapiro > 0 ):
+          #    [U15F, V15F] = do_shapiro(nshapiro, [U15F, V15F], mask0)
           # this actually removes non-ocean points
           (U15m, V15m), (LONM, LATM) =  Class4Current.msk_flds([U15F, V15F], [LONN, LATN], mask0)
           # now grid to lat long
@@ -341,6 +357,9 @@ def process_enan_obs(date=tate, ens_list=[0], filter=True, expt='GEPS_STO2X'):
         [U15,  V15] = Class4Current.calc_m15([UU, VV], e3t, mask)
         [U00F, V00F] = Class4Current.UU_ORCA_to_NE([U00, V00])
         [U15F, V15F] = Class4Current.UU_ORCA_to_NE([U15, V15])
+        # NOT ENOUGH WALLTIME
+        #if ( nshapiro > 0 ):
+        #    [U00F, V00F, U15F, V15F] = do_shapiro(nshapiro, [U00F, V00F, U15F, V15F], mask0)
         # this actually removes non-ocean points
         (U00m, V00m, U15m, V15m), (LONM, LATM) = Class4Current.msk_flds([U00F, V00F, U15F, V15F], [LONN, LATN], mask0)
         # now grid to lat long
@@ -459,7 +478,7 @@ def construct_anal_stfd(date, expt, ddir=mdir5):
     file=dpth+datestr+'00_000'
     return file
    
-def process_anal_obs(date=tate, filter=True, expt='GIOPS_T0', ddir=mdir5):
+def process_anal_obs(date=tate, filter=True, expt='GIOPS_T0', ddir=mdir5, nshapiro=0):
 
     nfcst=0
     datestr=date.strftime('%Y%m%d')   
@@ -542,6 +561,8 @@ def process_anal_obs(date=tate, filter=True, expt='GIOPS_T0', ddir=mdir5):
         [U15,  V15] = Class4Current.calc_m15([UU, VV], e3t, mask)
         [U00F, V00F] = Class4Current.UU_ORCA_to_NE([U00, V00])
         [U15F, V15F] = Class4Current.UU_ORCA_to_NE([U15, V15])
+        if ( nshapiro > 0 ):
+            [U00F, V00F, U15F, V15F] = do_shapiro(nshapiro, [U00F, V00F, U15F, V15F], mask0)
         # this actually removes non-ocean points
         (U00m, V00m, U15m, V15m), (LONM, LATM) = Class4Current.msk_flds([U00F, V00F, U15F, V15F], [LONN, LATN], mask0)
         # now grid to lat long
@@ -575,6 +596,8 @@ def process_anal_obs(date=tate, filter=True, expt='GIOPS_T0', ddir=mdir5):
             [U15,  V15] = Class4Current.calc_m15([UU, VV], e3t, mask)
             [U00F, V00F] = Class4Current.UU_ORCA_to_NE([U00, V00])
             [U15F, V15F] = Class4Current.UU_ORCA_to_NE([U15, V15])
+            if ( nshapiro > 0 ):
+                [U00F, V00F, U15F, V15F] = do_shapiro(nshapiro, [U00F, V00F, U15F, V15F], mask0)
             # this actually removes non-ocean points
             (U00m, V00m, U15m, V15m), (LONM, LATM) = Class4Current.msk_flds([U00F, V00F, U15F, V15F], [LONN, LATN], mask0)
             # now grid to lat long
@@ -597,8 +620,12 @@ def process_anal_obs(date=tate, filter=True, expt='GIOPS_T0', ddir=mdir5):
         print(UF.shape, VF.shape)
         [U00, V00] = [UF[0,:,:], VF[0,:,:]]
         [U15, V15] = Class4Current.calc_m15([UF, VF], e3t, mask)
+        [U00F, V00F] = Class4Current.UU_ORCA_to_NE([U00, V00])
+        [U15F, V15F] = Class4Current.UU_ORCA_to_NE([U15, V15])
+        if ( nshapiro > 0 ): 
+            [U00F, V00F, U15F, V15F] = do_shapiro(nshapiro, [U00F, V00F, U15F, V15F], mask0)
         # this actually removes non-ocean points
-        (U00m, V00m, U15m, V15m), (LONM, LATM) = Class4Current.msk_flds([U00, V00, U15, V15], [LONN, LATN], mask0)
+        (U00m, V00m, U15m, V15m), (LONM, LATM) = Class4Current.msk_flds([U00F, V00F, U15F, V15F], [LONN, LATN], mask0)
         # now grid to lat long
         (U00f, V00f, U15f, V15f), (LONF, LATF) = Class4Current.put_flds_latlon([U00m, V00m, U15m, V15m], [LONM, LATM], ddeg=0.2, method='2sweeplinear')
 
@@ -658,6 +685,22 @@ def process_anal_obs(date=tate, filter=True, expt='GIOPS_T0', ddir=mdir5):
 
     return 0
 
+def do_shapiro(nshapiro, FLDS, mask):
+    if ( nshapiro == 0 ):
+        return FLDS
+    FLDT = []
+    return_list = True
+    if ( not isinstance(FLDS, list) ): return_list = False
+    if ( not isinstance(FLDS, list) ): FLDS=[FLDS]
+    wtc=None
+    for FLD in FLDS:
+        # SEEM TO BE PASSING UNMASKED DATA
+        FLDM = np.ma.array(FLD, mask=(1-mask).astype(bool))
+        FLDN, wtc = shapiro.shapiro2D(FLDM,npass=nshapiro, wtc=wtc)
+        FLDT.append(FLDN.data)
+    if ( not return_list ): FLDT=FLDT[0]
+    return FLDT
+    
 def write_model_obsfile_ensemble_analysis(obsfile, tplfile, beste, inite, fcstv, persi, clobber=True, fullpath='/fs/site6/eccc/mrd/rpnenv/dpe000/Class4_Currents'):
 
     #print('fcstv SHAPE', np.shape(fcstv))
@@ -677,10 +720,10 @@ def write_model_obsfile_ensemble_analysis(obsfile, tplfile, beste, inite, fcstv,
     # Using same module, we should be able to recreate persistence with a longer time line too.
     # Fullpath added for use with ssh.  Not needed for local host execution.
     if ( clobber ):
-      rc=subprocess.call(['ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-      print('Job RC = ', rc)
-      #rc=subprocess.Popen(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-      #print('Job RC = ', rc.returncode)
+      #rc=subprocess.call(['ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+      #print('Job RC = ', rc)
+      rc=subprocess.Popen(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+      print('Job RC = ', rc.returncode)
       #print(rc.stdout.read(), rc.stderr.read())
       #print(''.join(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile]))
 
