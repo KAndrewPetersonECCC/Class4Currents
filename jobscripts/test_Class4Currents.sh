@@ -12,6 +12,7 @@ source jobscripts/prepython.sh
 
 python3 << EOD 
 
+from importlib import reload
 import os
 import sys
 sys.path.insert(0, '/home/dpe000/Class4_Currents/python')

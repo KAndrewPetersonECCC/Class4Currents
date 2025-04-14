@@ -7,6 +7,9 @@ SUBMIT=False
 FILTER=True
 ENAN=False
 FCEX=GEPS_STO2X
+NSHAPIRO=0
+DAT6=/fs/site6/eccc/mrd/rpnenv/dpe000/Class4_Currents
+
 for i in "$@"
 do
 case $i in
@@ -28,6 +31,10 @@ case $i in
     ;;
     -e=*|--ensemble=*)
     ENSM="${i#*=}"
+    shift # past argument=value
+    ;;
+    --shapiro=*)
+    NSHAPIRO="${i#*=}"
     shift # past argument=value
     ;;
     -s|--submit)
@@ -63,6 +70,10 @@ if [[ -z ${ENSM} ]] ; then
     echo ${USAGE}
     exit 99 
 fi
+if [[ ! -d ${DAT6}/${EXPT} ]] ; then 
+    mkdir ${DAT6}/${EXPT}
+    ln -s ${DAT6}/${EXPT} . 
+fi
 
 WDIR=/fs/homeu2/eccc/mrd/ords/rpnenv/dpe000/Class4_Currents
 cd ${WDIR}
@@ -72,9 +83,9 @@ if [[ ${ENAN} == False ]]; then
 else
     GEPS=${FCEX}
 fi
-BJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${DATE}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.sh
-NJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${NEXT}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.sh
-PJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${DATE}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.py
+BJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${DATE}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.${NSHAPIRO}.sh
+NJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${NEXT}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.${NSHAPIRO}.sh
+PJOB=${WDIR}/JOBS/${GEPS}_Class4Currents.${DATE}.${ENSM}.${ENAN:0:1}.${FILTER:0:1}.${NSHAPIRO}.py
 SJOB="ord_soumet ${BJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 CJOB="ord_soumet ${NJOB} -cpus 1 -mpi -cm 64000M -t 21600 -shell=/bin/bash"
 
@@ -87,7 +98,7 @@ cd ${WDIR}
 . ssmuse-sh -d eccc/cmd/cmds/ext/20220331
 ## Adding RPNPY
 source jobscripts/prepython.sh
-python ${PJOB}
+python3 ${PJOB}
 echo "FINISHED JOB for DATE ${DATE}"
 EOJ
 
@@ -114,6 +125,9 @@ import Class4Current
 import Class4CurrentEA
 datestr="${DATE}"
 date=datadatefile.convert_strint_date(datestr)
+nshapiro=0
+xshapiro=${NSHAPIRO}
+if ( xshapiro > 0 ): nshapiro=int(xshapiro)
 if not ( '${ENSM}' == 'A' ):
     ens_list=[${ENSM}]
     print("PROCESSING DATE", datestr, date, ens_list)
@@ -122,7 +136,7 @@ if not ( '${ENSM}' == 'A' ):
         if not ${ENAN}:
             Class4Current.process_geps_obs(date=date, ens_list=ens_list, filter=${FILTER})
         else:
-            Class4CurrentEA.process_enan_obs(date=date, ens_list=ens_list, filter=${FILTER}, expt='${FCEX}')
+            Class4CurrentEA.process_enan_obs(date=date, ens_list=ens_list, filter=${FILTER}, expt='${FCEX}', nshapiro=nshapiro)
         te = time.time() - t0
         print("PROCESS SUCCESS:  TIME ELAPSED ", te)
     except:
@@ -145,6 +159,9 @@ else:
             if ${FILTER}: 
                 obspre='CLASS4_currents_'+expt+'_FILT/class4'
                 obssuf=expt+'_orca025_currents'
+                if ( nshapiro > 0 ):
+                    obspre='CLASS4_currents_'+expt+'_'+str(nshapiro)+'_FILT/class4'
+                    obssuf=expt+'_'+str(nshapiro)+'_orca025_currents'
                 Class4CurrentEA.assemble_ensembleEA_date(date, obspre=obspre, obssuf=obssuf, iters=['f1','f2'], nens=21, clobber=True)
             else:
                 obspre='CLASS4_currents_'+expt+'_UFIL/class4'

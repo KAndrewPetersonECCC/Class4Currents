@@ -384,11 +384,11 @@ def plot_fields(FLDS, LONLATFLD, suptitle=None, grid=False, outfile_prefix='PLOT
         if ( not grid ):
             cplot.pcolormesh(LONFLD, LATFLD, FLD, levels=CLEV, cmap=cmap_use, project='PlateCarree', 
                outfile=outfile, make_global=True, title=title, suptitle=suptitle, 
-               cbar=True, obar='vertical', fontsizes=None)
+               cbar=True, obar='vertical', fontsizes=None, add_gridlines=True)
         else:
             cplot.grd_pcolormesh(LONFLD, LATFLD, FLD, levels=CLEV, cmap=cmap_use, project='PlateCarree', 
                outfile=outfile, ddeg=0.2, make_global=True, title=title, suptitle=suptitle, 
-               cbar=True, obar='vertical', fontsizes=None)
+               cbar=True, obar='vertical', fontsizes=None, add_gridlines=True)
         outfile=outfile_prefix+title+'.NP.png'
         cplot.pcolormesh(LONFLD, LATFLD, FLD, levels=CLEV, cmap=cmap_use, project='NorthPolarStereo', 
                outfile=outfile, title=title, suptitle=suptitle, 
@@ -3112,17 +3112,18 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
 
             title='MERR difference '+labels[0]+rmne_str0+' - '+labels[1]+rmne_str1+' '+vari[ivari] +' '+VARN[ifld]
             ofile='ANAL_plots/'+ 'merr'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
-            cplot.pcolormesh(LONG, LATG, grd_merr, levels=LEV_MERR, ticks=TIC_MERR, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP)
+            cplot.pcolormesh(LONG, LATG, grd_merr, levels=LEV_MERR, ticks=TIC_MERR, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP, add_gridlines=True)
             title='RMSE difference '+labels[0]+rmse_str0+' - '+labels[1]+rmse_str1+' '+vari[ivari] +' '+VARN[ifld]
+            title='RMSE difference '+labels[0]+rmse_str0+' - '+labels[1]+rmse_str1+' '+VARN[ifld]
             ofile='ANAL_plots/'+ 'rmse'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
-            cplot.pcolormesh(LONG, LATG, grd_rmse, levels=LEV_RMSE, ticks=TIC_RMSE, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP)
+            cplot.pcolormesh(LONG, LATG, grd_rmse, levels=LEV_RMSE, ticks=TIC_RMSE, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP, add_gridlines=True)
             title='rcorr difference '+labels[0]+rcor_str0+' - '+labels[1]+rcor_str1+' '+vari[ivari] +' '+VARN[ifld]
             ofile='ANAL_plots/'+ 'corr'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
-            cplot.pcolormesh(LONG, LATG, grd_corr, levels=LEV_CORR,ticks=TIC_CORR,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=AMAP)
+            cplot.pcolormesh(LONG, LATG, grd_corr, levels=LEV_CORR,ticks=TIC_CORR,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=AMAP, add_gridlines=True)
             if ( len(GLB_CRPS) > 0 ):
                 title='crps difference '+labels[0]+rcps_str0+' - '+labels[1]+rcps_str1+' '+vari[ivari] +' '+VARN[ifld]
                 ofile='ANAL_plots/'+ 'crps'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
-                cplot.pcolormesh(LONG, LATG, grd_crps, levels=LEV_CRPS,ticks=TIC_CRPS,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP)
+                cplot.pcolormesh(LONG, LATG, grd_crps, levels=LEV_CRPS,ticks=TIC_CRPS,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP, add_gridlines=True)
             
             tim_merr = []
             tim_rmse = []
@@ -3495,13 +3496,13 @@ def make_spatial_plots_3errors(indir, insuffix, date_range, outdir='EPLOTS/',
            title = etypp+' error for '+USS+' '+BEST[ifield]+' '+datestr_spass
            plt_fld = field[:, :, ivar, ilev]
            if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
-           cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV,obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+           cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV,obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)    
            if ( ifield == 1 ):
                outfile=outdir+'D'+USS+'_'+etypp+'_'+BEST[ifield]+'_'+datestr_spans+'.png'
                title = etype+' error difference for '+USS+' '+BEST[ifield]+' '+datestr_spass
                plt_fld = field[:, :, ivar, ilev]-Ebeste[:, :, ivar, ilev]
                #if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
-               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=ALEV,obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=AMAP)    
+               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=ALEV,obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=AMAP, add_gridlines=True)    
 
            for ifcst in range(nfcst):
                dstr=str(ifcst+1).zfill(2)
@@ -3509,7 +3510,7 @@ def make_spatial_plots_3errors(indir, insuffix, date_range, outdir='EPLOTS/',
                title = etypp+' error for '+USS+' '+FEST[ifield]+' day '+dstr+' '+datestr_spass
                plt_fld = FFLD[ifield][:, :, ivar, ifcst, ilev]
                if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
-               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)    
 
            for ifcst in range(nfcst):
                dstr=str(ifcst+1).zfill(2)
@@ -3556,7 +3557,7 @@ def make_Dspatial_plots_3errors(indir, insuffix, date_range, outdir='EPLOTS/',
            #if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
            CLEV=levels
            CMAP=cmap_anom_field
-           cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+           cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)    
 
            for ifcst in range(nfcst):
                dstr=str(ifcst+1).zfill(2)
@@ -3564,7 +3565,7 @@ def make_Dspatial_plots_3errors(indir, insuffix, date_range, outdir='EPLOTS/',
                title = etypp+' error for '+USS+' '+FEST[ifield]+' day '+dstr+' '+datestr_spass
                plt_fld = FFLD[ifield][:, :, ivar, ifcst, ilev]-CFLD[ifield][:, :, ivar, ifcst, ilev]
                #if ( etype == 'square' ): plt_fld = np.sqrt(plt_fld)
-               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP)    
+               cplot.pcolormesh(lon_grid, lat_grid, plt_fld, levels=CLEV, obar='horizontal', title=title, outfile=outfile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)    
 
     return           
 
@@ -3622,25 +3623,25 @@ def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/',
                     FLD=beste[:,ivar,ilev]
                     ofile=outdir+datestr+'_'+'best'+'_'+var+error+'.png'
                     title='Init Estimate for '+datestr
-                    cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+                    cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap, add_gridlines=True)
                     FLD=inite[:,ivar,ilev]
                     ofile=outdir+datestr+'_'+'init'+'_'+var+error+'.png'
-                    cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+                    cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap, add_gridlines=True)
                     if ( not calculate_error ):
                         FLD=obser[:,ivar,ilev] = obser[:,ivar,ilev]
                         ofile=outdir+datestr+'_'+'obsv'+'_'+var+error+'.png'
                         title='Observations for '+datestr
-                        cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+                        cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap, add_gridlines=True)
                     
                     for ifcst in range(nfcst):
                         FLD=fcstv[:,ivar,ifcst, ilev]
                         ofile=outdir+datestr+'_'+'fc'+str(ifcst).zfill(2)+'_'+var+error+'.png'
                         title=str(ifcst).zfill(2)+' Forecast for '+datestr
-                        cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+                        cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap, add_gridlines=True)
                         FLD=persi[:,ivar,ifcst, ilev]
                         ofile=outdir+datestr+'_'+'ps'+str(ifcst).zfill(2)+'_'+var+error+'.png'
                         title=str(ifcst).zfill(2)+' Persist for '+datestr
-                        cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap)
+                        cplot.scatter(LONO, LATO, FLD, levels=plevels, obar='horizontal', outfile=ofile, title=title, make_global=True, cmap=cmap, add_gridlines=True)
 
             if ( plot_time_mean ):
                 for ivar in range(2):
@@ -3712,12 +3713,12 @@ def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/',
                 #print(err_list[ierr], np.min(grid_plt))
                 if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
                 ofile=outdir+datestr+'_'+'best'+'_'+var+error+'.png'
-                cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+                cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap, add_gridlines=True)
                 grid_sum, grid_cnt = iERR_INIT[ierr]
                 grid_plt = cplot.binfldsumFIN(grid_sum, grid_cnt)
                 if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
                 ofile=outdir+datestr+'_'+'init'+'_'+var+error+'.png'
-                cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+                cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap, add_gridlines=True)
         for ifcst in range(nfcst):
             for ivar in range(2): 
                 if ( ivar == 0 ): var='u'
@@ -3739,12 +3740,12 @@ def make_spatial_plots(indir, insuffix, date_range, outdir='EPLOTS/',
                     #print(ierr, err_list[ierr], np.min(grid_plt))
                     if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
                     ofile=outdir+datestr+'_'+'fc'+str(ifcst).zfill(2)+'_'+var+error+'.png'
-                    cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+                    cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap, add_gridlines=True)
                     grid_sum, grid_cnt = iERR_PERS[ierr]
                     grid_plt = cplot.binfldsumFIN(grid_sum, grid_cnt)
                     if ( err_list[ierr] == 'rms' ): grid_plt = np.sqrt(grid_plt)
                     ofile=outdir+datestr+'_'+'ps'+str(ifcst).zfill(2)+'_'+var+error+'.png'
-                    cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap)
+                    cplot.pcolormesh(grid_lon, grid_lat, grid_plt, outfile=ofile, levels=levels, cmap=cmap, add_gridlines=True)
     return
 
 def find_date_in_filename(filename):

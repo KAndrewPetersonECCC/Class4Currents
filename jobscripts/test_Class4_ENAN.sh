@@ -9,7 +9,7 @@ cd ${WDIR}
 ## Adding RPNPY
 source jobscripts/prepython.sh
 
-python << EOD
+python3 << EOD
 from importlib import reload
 import os
 import sys

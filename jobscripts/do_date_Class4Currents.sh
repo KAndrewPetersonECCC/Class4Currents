@@ -19,6 +19,8 @@ IGNORE=False
 PLOT="-q"
 CHARLY=""
 FILTER="--filter"
+NSHAPIRO=0
+
 for i in "$@"
 do
 case $i in
@@ -82,6 +84,10 @@ case $i in
     EXPT="${i#*=}"
     shift # past argument=value
     ;;
+    --shapiro=*)
+    NSHAPIRO="${i#*=}"
+    shift # past argument=value
+    ;;
     -D=*|--data_dir=*|--ddir=*)
     DDIR="${i#*=}"
     shift # past argument=value
@@ -140,108 +146,50 @@ while [[ ${THISTIME} -le ${FINALTIME} ]] ; do
     NEXT=$(date -u --date "${DATE} + 1 day" +%Y%m%d)
     NEXTTIME=$(date -u --date ${NEXT} +%s)
     if [[ ${ZERO} == True ]];  then
-        echo "Submitting Zeroth Job"
-        if [[ ${ORIG} == True ]]; then
-	        echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT} -s"
-	        bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT} -s
-	    fi
-        if [[ ${GIOP} == True ]] ; then 
-	        echo "jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT} -s"
-            bash ${WDIR}/jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT} -s
-        fi
-	    if [[ ${GEPS} == True ]] ; then 
-	        for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
-	            echo "jobscripts/GEPS_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT} -s"
-	            bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT} -s
-            done
-	    fi
-	    if [[ ${ENAN} == True ]] ; then 
-	        for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
-	            echo "jobscripts/GEPS_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT} -s"
-	            bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT} -s
-            done
-	    fi
-	    if [[ ${ANAL} == True ]] ; then 
-	        echo "jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} --next=${NEXT} --ddir=${DDIR} -s"
-	        bash ${WDIR}/jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} --next=${NEXT} --ddir=${DDIR} -s
-	    fi
-	    if [[ ${ASSG} == True ]] ; then 
-	        echo "jobscripts/GEPS_Class4Currents.sh  --date=${DATE} -e=A ${FILTER} --next=${NEXT} -s"
-	        bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=A ${FILTER} --next=${NEXT} -s
-	    fi	       
-	    if [[ ${ASEA} == True ]] ; then 
-	        echo "jobscripts/GEPS_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER} --next=${NEXT} -s"
-	        bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER} --next=${NEXT} -s
-	    fi	       
-	    ZERO=False
+        SUB="-s"
+        ZERO=FALSE
     else
-        echo "Preparing Other Jobs"
-        if [[ ${NEXTTIME} -le ${FINALTIME} ]]; then 
-            echo "${GEPS} == False  ${ASSG} == False ${ENAN} == False  ${ASEA} == False ${ANAL} == False"
-	        #if [[ ${GEPS} == False && ${ASSG} == False  && ${ENAN} == False && ${ASEA} == False && ${ANAL} == False ]] ; then 
-            if [[ ${ORIG} == True ]]; then
-	            echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT}"
-                bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} --next=${NEXT}
-            fi
-            if [[ ${GIOP} == True ]] ; then 
-	            echo "jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT}"
-                bash ${WDIR}/jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} --next=${NEXT}
-            fi
- 	        if [[ ${GEPS} == True ]] ; then 
-	            for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
-	                echo "jobscripts/GEPS_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT}"
-	                bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT}
-                done
-            fi
- 	        if [[ ${ENAN} == True ]] ; then 
-	            for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
-	                echo "jobscripts/GEPS_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT}"
-	                bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER} --next=${NEXT}
-                done
-            fi
-	        if [[ ${ANAL} == True ]] ; then 
-	            echo "jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} --next=${NEXT} --ddir=${DDIR} "
-	            bash ${WDIR}/jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} --next=${NEXT} --ddir=${DDIR}
-	        fi
-	        if [[ ${ASSG} == True ]] ; then 
-	            echo "jobscripts/GEPS_Class4Currents.sh  --date=${DATE} -e=A ${FILTER} --next=${NEXT}"
-	            bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=A ${FILTER} --next=${NEXT} 
-	        fi	       
-	        if [[ ${ASEA} == True ]] ; then 
-	            echo "jobscripts/GEPS_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER} --next=${NEXT}"
-	            bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER} --next=${NEXT} 
-	        fi	       
-	    else
-	        if [[ ${GEPS} == False && ${ASSG} == False && ${ENAN} == False && ${ASEA} == False && ${ANAL} == False ]] ; then 
-	            echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER}"
-	            bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER}
-            fi
- 	        if [[ ${GEPS} == True ]] ; then 
-	            for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
-	                echo "jobscripts/GEPS_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER}"
-	                bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER}
-                done
-	        fi
- 	        if [[ ${ENAN} == True ]] ; then 
-	            for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
-	                echo "jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER}"
-	                bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh   --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER}
-                done
-	        fi
-	        if [[ ${ANAL} == True ]] ; then 
-	            echo "jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} --ddir=${DDIR} "
-	            bash ${WDIR}/jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} --ddir=${DDIR}
-	        fi
- 	        if [[ ${ASSG} == True ]] ; then 
-	            echo "jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=A ${FILTER}"
-	            bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=A ${FILTER} 
-            fi
- 	        if [[ ${ASEA} == True ]] ; then 
-	           echo "jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER}"
-	           bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER} 
-            fi
-	    fi
+        SUB=""
     fi
+      
+    if [[ ${NEXTTIME} -le ${FINALTIME} ]]; then 
+        DONEXT="--next=${NEXT}"
+    else
+        DONEXT=""
+    fi
+        
+    if [[ ${ORIG} == True ]]; then
+	        echo "jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} ${DONEXT} ${SUB}"
+	        bash ${WDIR}/jobscripts/date_Class4Currents.sh  --date=${DATE} ${PLOT} ${CHARLY} ${FILTER} ${DONEXT} ${SUB}
+    fi
+    if [[ ${GIOP} == True ]] ; then 
+	        echo "jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} ${SUB}"
+            bash ${WDIR}/jobscripts/giops_Class4Currents.sh  --date=${DATE} ${CHARLY} ${FILTER} ${DONEXT} ${SUB}
+    fi
+	if [[ ${GEPS} == True ]] ; then 
+	    for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
+	            echo "jobscripts/GEPS_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER} ${DONEXT} ${SUB}"
+	            bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=${ie} ${FILTER} ${DONEXT} ${SUB}
+        done
+	fi
+	if [[ ${ENAN} == True ]] ; then 
+	    for ie in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 ; do 
+	            echo "jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER} --shapiro=${NSHAPIRO} ${DONEXT} ${SUB}"
+	            bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=${ie} ${FILTER} ${DONEXT} --shapiro=${NSHAPIRO} ${SUB}
+        done
+	fi
+	if [[ ${ANAL} == True ]] ; then 
+	        echo "jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} ${DONEXT} --ddir=${DDIR} ${SUB}"
+	        bash ${WDIR}/jobscripts/ANALdate_Class4Currents.sh  --expt=${EXPT} --date=${DATE} ${FILTER} ${DONEXT} --ddir=${DDIR} ${SUB}
+	fi
+	if [[ ${ASSG} == True ]] ; then 
+	        echo "jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=A ${FILTER} ${DONEXT} ${SUB}"
+	        bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --date=${DATE} -e=A ${FILTER} ${DONEXT} ${SUB}
+	fi	       
+	if [[ ${ASEA} == True ]] ; then 
+	        echo "jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER} ${DONEXT} --shapiro=${NSHAPIRO} ${SUB}"
+	        bash ${WDIR}/jobscripts/GEPSdate_Class4Currents.sh  --EA --fcst=${FCEX} --date=${DATE} -e=A ${FILTER} ${DONEXT} --shapiro=${NSHAPIRO} ${SUB}
+	fi	       
      
     DATE=$(date -u --date "${DATE} + 1 day" +%Y%m%d)
     THISTIME=$(date -u --date ${DATE} +%s)

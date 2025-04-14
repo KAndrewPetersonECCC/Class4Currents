@@ -720,12 +720,14 @@ def write_model_obsfile_ensemble_analysis(obsfile, tplfile, beste, inite, fcstv,
     # Using same module, we should be able to recreate persistence with a longer time line too.
     # Fullpath added for use with ssh.  Not needed for local host execution.
     if ( clobber ):
-      #rc=subprocess.call(['ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+      #rc=subprocess.call(['ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile]) 
       #print('Job RC = ', rc)
-      rc=subprocess.Popen(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-      print('Job RC = ', rc.returncode)
+      rc=subprocess.call(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile]) 
+      print('Job RC = ', rc)
+      #rc=subprocess.POpen(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','init_estimate,forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile], stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+      #print('Job RC = ', rc.returncode)
       #print(rc.stdout.read(), rc.stderr.read())
-      #print(''.join(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile]))
+      #print(' '.join(['ssh', 'ppp6', '/usr/bin/ncks','-O','-x','-v','forecast,persistence,negative_persistence',fullpath+'/'+tplfile, fullpath+'/'+obsfile]))
 
     obsset = netCDF4.Dataset(obsfile,mode='r+')
     nfcsts_d = obsset.createDimension('numfcsts', nfcsts)

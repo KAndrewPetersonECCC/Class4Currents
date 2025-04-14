@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as clr
+import matplotlib.ticker as mticker 
 import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import scipy.interpolate as si
 import scipy.stats as ss
         
@@ -29,8 +31,9 @@ def make_projections(**kwargs):
     return projections, pcarree
 
 def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateCarree', outfile='plt.png', 
-               box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, 
-               cbar=True, obar='vertical', fontsizes=None, marks=None, **kwargs):
+               box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, landcover=None, 
+               cbar=True, obar='vertical', fontsizes=None, marks=None, add_gridlines=False, latloc=None, lonloc=None, 
+               landcolor=None, **kwargs):
 
     title_fontsize = fontsizes
     cbar_fontsize = fontsizes
@@ -42,6 +45,10 @@ def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='Pla
             title_fontsize = fontsizes[0]
             cbar_fontsize = fontsizes[1]
             fontsize=fontsizes[0]
+    if ( isinstance(latloc, type(None)) ):
+        latloc = np.arange(-60, 90, 30) 
+    if ( isinstance(lonloc, type(None)) ):
+        lonloc = np.arange(-135, 180, 45) 
     #print(fontsize, title_fontsize, cbar_fontsize)
     fig = plt.figure()
     projections, pcarree = make_projections(**kwargs)
@@ -51,7 +58,7 @@ def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='Pla
         norm=None
     else:
         Ncolors=plt.get_cmap(cmap).N
-        norm = clr.BoundaryNorm(levels, ncolors=Ncolors, clip=True)
+        norm = clr.BoundaryNorm(levels, ncolors=Ncolors, clip=False, extend='both')
 
     if ( make_global ):
         ax.set_global()
@@ -61,7 +68,7 @@ def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='Pla
         mesh = ax.pcolormesh(lon, lat, field, cmap=cmap,transform=pcarree)
     else:
         mesh = ax.pcolormesh(lon, lat, field, norm=norm, cmap=cmap, transform=pcarree)
-    mesh.set_cmap(cmap)
+    #mesh.set_cmap(cmap)
     if ( marks ):
         Xmark = marks[0]
         Ymark = marks[1]
@@ -79,6 +86,20 @@ def pcolormesh(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='Pla
         cbar_fig=fig.colorbar(mesh, format='%.3f',orientation=obar, ticks=ticks)
         cbar_fig.ax.tick_params(labelsize=cbar_fontsize)
     ax.coastlines()
+    if ( not isinstance(landcolor, type(None) ) ):
+        ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m', edgecolor='k', facecolor=landcolor, alpha=0.4))
+    if add_gridlines:
+        gl = ax.gridlines(crs=projections[project], linewidth=1, color='darkmagenta', alpha=0.75, linestyle='--', draw_labels=True)
+        gl.xlabels_top = False
+        gl.ylabels_left = False
+        gl.ylabels_right=True
+        gl.xlines = True
+        gl.xlocator = mticker.FixedLocator(lonloc)
+        gl.ylocator = mticker.FixedLocator(latloc)
+        #gl.xformatter = LONGITUDE_FORMATTER
+        #gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'color': 'black', 'weight': 'normal'}
+        gl.xyabel_style = {'color': 'black', 'weight': 'normal'}
     #print('title', title_fontsize)
     if ( suptitle != None ): fig.suptitle(suptitle, fontsize=title_fontsize)
     ax.set_title(title, fontsize=title_fontsize)
@@ -174,30 +195,32 @@ def grd_pcolormesh(lon, lat, field, levels=None, ticks=None,
                    outfile='plt.png', box=[-180, 180, -90, 90], 
                    make_global=False, title='', suptitle=None, ddeg=0.5, 
                    cbar=True, interp_method='nearest', fontsizes=None,
-                   marks=None,
-                   **kwargs
+                   marks=None, add_gridlines=False, latloc=None, lonloc=None,
+                   landcolor=None, **kwargs
                    ):
 
     central_longitude=0.0
     if ( ( project == 'PacificCarree' ) or ( project == 'Percator' ) ): central_longitude=180.0
     grid_lon, grid_lat, grid_fld = grdfld(lon, lat, field, ddeg=ddeg, method=interp_method,central_longitude=central_longitude)
     pcolormesh(grid_lon, grid_lat, grid_fld, levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
-               box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar, fontsizes=fontsizes, marks=marks, **kwargs)
+               box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar, fontsizes=fontsizes, marks=marks, 
+               add_gridlines=add_gridlines, latloc=latloc, lonloc=lonloc, landcolor=landcolor, **kwargs)
     return
     
 def bin_pcolormesh(lon, lat, field, levels=None, ticks=None, 
                    cmap=dmap, project='PlateCarree', 
                    outfile='plt.png', box=[-180, 180, -90, 90], 
                    make_global=False, title='',  suptitle=None, ddeg=2.0, cbar=True, obar='vertical', fontsizes=None,
-                   marks=None,
-                   **kwargs
+                   marks=None, add_gridlines=False, latloc=None, lonloc=None,
+                   landcover=None, **kwargs
                    ):
 
     grid_lon, grid_lat, grid_fld = binfld(lon, lat, field, ddeg=ddeg)
     pcolormesh(grid_lon, grid_lat, grid_fld, levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
                box=box, make_global=make_global, title=title, suptitle=suptitle, 
                cbar=cbar, obar=obar,fontsizes=fontsizes, marks=marks,
-               **kwargs)
+               add_gridlines=add_gridlines, latloc=latloc, lonloc=latloc,
+               landcover=landcover, **kwargs)
     return
    
 def mask_field(lon, lat, fld, mask):
@@ -212,8 +235,8 @@ def msk_grd_pcolormesh(lon, lat, field,  mask, levels=None, ticks=None,
                    outfile='plt.png', box=[-180, 180, -90, 90], 
                    make_global=False, title='', suptitle=None, ddeg=0.5, cbar=True, obar='vertical',
                    addmask=False, interp_method='nearest', fontsizes=None,
-                   marks=None,                   
-                   **kwargs
+                   marks=None, add_gridlines=False, latloc=None, lonloc=None,                   
+                   landcover=None, **kwargs
                    ):
 
     mask_lon, mask_lat, mask_fld = mask_field(lon, lat, field, mask)
@@ -224,31 +247,34 @@ def msk_grd_pcolormesh(lon, lat, field,  mask, levels=None, ticks=None,
     if ( not addmask ):
         pcolormesh(grid_lon, grid_lat, grid_fld, levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
                    box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar, 
-                   obar=obar, fontsizes=fontsizes, marks=marks, **kwargs)
+                   obar=obar, fontsizes=fontsizes, marks=marks, landcolor=landcolor, 
+                   add_gridlines=add_gridlines, latloc=latloc, lonloc=lonloc, **kwargs)
     else:
         pcolormesh(grid_lon, grid_lat, np.ma.array(grid_fld, mask=np.logical_not(grid_msk)),
                    levels=levels, ticks=ticks, cmap=cmap, project=project, outfile=outfile, 
                    box=box, make_global=make_global, title=title, suptitle=suptitle, cbar=cbar, 
-                   obar=obar, fontsizes=fontsizes, marks=marks, **kwargs)
+                   obar=obar, fontsizes=fontsizes, marks=marks, landcover=landcover, 
+                   add_gridlines=add_gridlines, latloc=latloc, lonloc=lonloc, **kwargs)
     return
     
 def msk_bin_pcolormesh(lon, lat, field, mask, levels=None, ticks=None, 
                    cmap=dmap, project='PlateCarree', 
                    outfile='plt.png', box=[-180, 180, -90, 90], 
                    make_global=False, title='', suptitle=None, ddeg=2.0, cbar=True, obar='vertial', fontsizes=None, 
-                   marks=None,
-                   **kwargs):
+                   marks=None, add_gridlines=False, latloc=None, lonloc=None,
+                   landcolor=None, **kwargs):
 
     mask_lon, mask_lat, mask_fld = mask_field(lon, lat, field, mask)
     grid_lon, grid_lat, grid_fld = binfld(mask_lon, mask_lat, mask_fld, ddeg=ddeg)
     pcolormesh(grid_lon, grid_lat, grid_fld, levels=levels, ticks=ticks, cmap=cmap, project=project, 
                outfile=outfile, box=box, make_global=make_global, title=title, suptitle=suptitle, 
-               cbar=cbar,obar=obar, fontsizes=fontsizes, marks=marks, **kwargs)
+               cbar=cbar,obar=obar, fontsizes=fontsizes, marks=marks, landcover=landcover, 
+               add_gridlines=add_gridlines, latloc=latloc, lonloc=lonloc, **kwargs)
     return
    
 def quiver(lon, lat, ufield, vfield, levels=None, cmap=dmap, project='PlateCarree', outfile='plt.png', 
-           box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, 
-           cbar=True, obar='vertical', Nskip=1, **kwargs):
+           box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, landcover=None,
+           cbar=True, obar='vertical', Nskip=1, add_gridlines=False, latloc=None, lonloc=None, **kwargs):
 
     projections,pcarree = make_projections(**kwargs)
 
@@ -261,7 +287,12 @@ def quiver(lon, lat, ufield, vfield, levels=None, cmap=dmap, project='PlateCarre
         norm=None
     else:
         Ncolors=plt.get_cmap(cmap).N
-        norm = clr.BoundaryNorm(levels, ncolors=Ncolors, clip=True)
+        norm = clr.BoundaryNorm(levels, ncolors=Ncolors, clip=False, extend='both')
+
+    if ( isinstance(latloc, type(None)) ):
+        latloc = np.arange(-60, 90, 30) 
+    if ( isinstance(lonloc, type(None)) ):
+        lonloc = np.arange(-135, 180, 45) 
 
     if ( make_global ):
         ax.set_global()
@@ -275,6 +306,20 @@ def quiver(lon, lat, ufield, vfield, levels=None, cmap=dmap, project='PlateCarre
     quiver = ax.quiver(lon[skip], lat[skip], ufield[skip], vfield[skip])
     if ( cbar ): fig.colorbar(mesh, format='%.2f',orientation=obar)
     ax.coastlines()
+    if ( not isinstance(landcolor, type(None) ) ):
+        ax.add_feature(cfeature.NaturalEarthFeature('physical', 'land', '10m', edgecolor='k', facecolor=landcolor, alpha=0.4))
+    if add_gridlines:
+        gl = ax.gridlines(crs=projections[project], linewidth=1, color='darkmagenta', alpha=0.75, linestyle='--', draw_labels=True)
+        gl.xlabels_top = False
+        gl.ylabels_left = False
+        gl.ylabels_right=True
+        gl.xlines = True
+        gl.xlocator = mticker.FixedLocator(lonloc)
+        gl.ylocator = mticker.FixedLocator(latloc)
+        #gl.xformatter = LONGITUDE_FORMATTER
+        #gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'color': 'black', 'weight': 'normal'}
+        gl.xyabel_style = {'color': 'black', 'weight': 'normal'}
     ax.set_title(title)
     if ( suptitle != None ): fig.suptitle(suptitle)
     fig.savefig(outfile,bbox_inches='tight')
@@ -283,7 +328,9 @@ def quiver(lon, lat, ufield, vfield, levels=None, cmap=dmap, project='PlateCarre
         
 def scatter(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateCarree', outfile='plt.png', 
                box=[-180, 180, -90, 90], make_global=False, title='', suptitle=None, 
-               cbar=True, obar='vertical', fontsizes=None, s=5, **kwargs):
+               cbar=True, obar='vertical', fontsizes=None, s=5, 
+               add_gridlines=False, latloc=None, lonloc=None,
+               **kwargs):
 
     title_fontsize = fontsizes
     cbar_fontsize = fontsizes
@@ -304,7 +351,12 @@ def scatter(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateC
         norm=None
     else:
         Ncolors=plt.get_cmap(cmap).N
-        norm = clr.BoundaryNorm(levels, ncolors=Ncolors, clip=True)
+        norm = clr.BoundaryNorm(levels, ncolors=Ncolors, clip=False, extend='both')
+
+    if ( isinstance(latloc, type(None)) ):
+        latloc = np.arange(-60, 90, 30) 
+    if ( isinstance(lonloc, type(None)) ):
+        lonloc = np.arange(-135, 180, 45) 
 
     if ( make_global ):
         ax.set_global()
@@ -322,6 +374,18 @@ def scatter(lon, lat, field, levels=None, ticks=None, cmap=dmap, project='PlateC
         cbar_fig=fig.colorbar(scat, format='%.2f',orientation=obar, ticks=ticks)
         cbar_fig.ax.tick_params(labelsize=cbar_fontsize)
     ax.coastlines()
+    if add_gridlines:
+        gl = ax.gridlines(crs=projections[project], linewidth=1, color='darkmagenta', alpha=0.75, linestyle='--', draw_labels=True)
+        gl.xlabels_top = False
+        gl.ylabels_left = False
+        gl.ylabels_right=True
+        gl.xlines = True
+        gl.xlocator = mticker.FixedLocator(lonloc)
+        gl.ylocator = mticker.FixedLocator(latloc)
+        #gl.xformatter = LONGITUDE_FORMATTER
+        #gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'color': 'black', 'weight': 'normal'}
+        gl.xyabel_style = {'color': 'black', 'weight': 'normal'}
     #print('title', title_fontsize)
     if ( suptitle != None ): fig.suptitle(suptitle, fontsize=title_fontsize)
     ax.set_title(title, fontsize=title_fontsize)
