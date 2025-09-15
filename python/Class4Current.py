@@ -2974,6 +2974,14 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
     GDA_RMSE = []
     GDA_CORR = []
     GDA_CRPS = []
+    G1A_MERR = []
+    G1A_RMSE = []
+    G1A_CORR = []
+    G1A_CRPS = []
+    G2A_MERR = []
+    G2A_RMSE = []
+    G2A_CORR = []
+    G2A_CRPS = []
     GLB_MERR = []
     GLB_RMSE = []
     GLB_CORR = []
@@ -2988,6 +2996,10 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
         if ( ielem == 0 ):
             GDA_MERR.append( GDA_PLOT[0][ielem] - GDA_PLOT[2][ielem] )
             GDA_MERR.append( GDA_PLOT[1][ielem] - GDA_PLOT[3][ielem] )
+            G1A_MERR.append( GDA_PLOT[0][ielem] )
+            G1A_MERR.append( GDA_PLOT[1][ielem] )
+            G2A_MERR.append( GDA_PLOT[2][ielem] )
+            G2A_MERR.append( GDA_PLOT[3][ielem] )
             GLB_MERR.append( [GLB_SUMP[0][ielem], GLB_SUMP[2][ielem]] )
             GLB_MERR.append( [GLB_SUMP[1][ielem], GLB_SUMP[3][ielem]] )
             tim_merr = []
@@ -3006,6 +3018,10 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
         if ( ielem == 1 ):
             GDA_RMSE.append( np.sqrt(GDA_PLOT[0][ielem]) - np.sqrt(GDA_PLOT[2][ielem]) )
             GDA_RMSE.append( np.sqrt(GDA_PLOT[1][ielem]) - np.sqrt(GDA_PLOT[3][ielem]) )
+            G1A_RMSE.append( np.sqrt(GDA_PLOT[0][ielem]) )
+            G1A_RMSE.append( np.sqrt(GDA_PLOT[1][ielem]) )
+            G2A_RMSE.append( np.sqrt(GDA_PLOT[2][ielem]) )
+            G2A_RMSE.append( np.sqrt(GDA_PLOT[3][ielem]) )
             GLB_RMSE.append( [np.sqrt(GLB_SUMP[0][ielem]), np.sqrt(GLB_SUMP[2][ielem])] )
             GLB_RMSE.append( [np.sqrt(GLB_SUMP[1][ielem]), np.sqrt(GLB_SUMP[3][ielem])] )
             tim_rmse = []
@@ -3024,6 +3040,10 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
         elif (ielem == 2 ):
             GDA_CORR.append( GDA_PLOT[0][ielem] - GDA_PLOT[2][ielem] )
             GDA_CORR.append( GDA_PLOT[1][ielem] - GDA_PLOT[3][ielem] )
+            G1A_CORR.append( GDA_PLOT[0][ielem] )
+            G1A_CORR.append( GDA_PLOT[1][ielem] )
+            G2A_CORR.append( GDA_PLOT[2][ielem] )
+            G2A_CORR.append( GDA_PLOT[3][ielem] )
             GLB_CORR.append( [ GLB_SUMP[0][ielem], GLB_SUMP[2][ielem]] )
             GLB_CORR.append( [ GLB_SUMP[1][ielem], GLB_SUMP[3][ielem]] )
             tim_corr = []
@@ -3039,6 +3059,10 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
         elif (ielem == 3 ):
             GDA_CRPS.append( GDA_PLOT[0][ielem] - GDA_PLOT[2][ielem] )
             GDA_CRPS.append( GDA_PLOT[1][ielem] - GDA_PLOT[3][ielem] )
+            G1A_CRPS.append( GDA_PLOT[0][ielem] )
+            G1A_CRPS.append( GDA_PLOT[1][ielem] )
+            G2A_CRPS.append( GDA_PLOT[2][ielem] )
+            G2A_CRPS.append( GDA_PLOT[3][ielem] )
             GLB_CRPS.append( [ GLB_SUMP[0][ielem], GLB_SUMP[2][ielem]] )
             GLB_CRPS.append( [ GLB_SUMP[1][ielem], GLB_SUMP[3][ielem]] )
             tim_crps = []
@@ -3060,12 +3084,20 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
             grd_merr = GDA_MERR[ivari][:,:, ifld, 0]
             grd_rmse = GDA_RMSE[ivari][:,:, ifld, 0]    
             grd_corr = GDA_CORR[ivari][:,:, ifld, 0] 
+            gr1_merr = G1A_MERR[ivari][:,:, ifld, 0]
+            gr1_rmse = G1A_RMSE[ivari][:,:, ifld, 0]    
+            gr1_corr = G1A_CORR[ivari][:,:, ifld, 0] 
+            gr2_merr = G2A_MERR[ivari][:,:, ifld, 0]
+            gr2_rmse = G2A_RMSE[ivari][:,:, ifld, 0]    
+            gr2_corr = G2A_CORR[ivari][:,:, ifld, 0] 
             glb_merr = [GLB_MERR[ivari][iexpt][ifld] for iexpt in range(len(expts))]
             glb_rmse = [GLB_RMSE[ivari][iexpt][ifld] for iexpt in range(len(expts))]
             glb_corr = [GLB_CORR[ivari][iexpt][ifld] for iexpt in range(len(expts))]
             glb_crps = [0, 0]
             if ( len(GLB_CRPS)  > 0 ):
                 grd_crps = GDA_CRPS[ivari][:,:, ifld, 0]    
+                gr1_crps = G1A_CRPS[ivari][:,:, ifld, 0]    
+                gr2_crps = G2A_CRPS[ivari][:,:, ifld, 0]    
                 glb_crps = [GLB_CRPS[ivari][iexpt][ifld] for iexpt in range(len(expts))]
             
             #print('glb_corr', glb_corr)
@@ -3120,11 +3152,41 @@ def compare_analysis_errors(date_range, expts, labels=None, insuffixs=['GIOPS_or
             title='rcorr difference '+labels[0]+rcor_str0+' - '+labels[1]+rcor_str1+' '+vari[ivari] +' '+VARN[ifld]
             ofile='ANAL_plots/'+ 'corr'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
             cplot.pcolormesh(LONG, LATG, grd_corr, levels=LEV_CORR,ticks=TIC_CORR,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=AMAP, add_gridlines=True)
+
+            title='MERR '+labels[0]+rmne_str0+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'merr1'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, gr1_merr, levels=LEV_MERR, ticks=TIC_MERR, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP, add_gridlines=True)
+            title='RMSE '+labels[0]+rmse_str0+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'rmse1'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, gr1_rmse, levels=LEV_RMSE, ticks=TIC_RMSE, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)
+            title='rcorr difference '+labels[0]+rcor_str0+' - '+labels[1]+rcor_str1+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'corr1'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, gr1_corr, levels=None,ticks=None,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)
+
+            title='MERR '+labels[1]+rmne_str1+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'merr2'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, gr2_merr, levels=None, ticks=None, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP, add_gridlines=True)
+            title='RMSE '+labels[1]+rmse_str1+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'rmse2'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, gr2_rmse, levels=None, ticks=None, obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)
+            title='rcorr '+labels[1]+rcor_str1+' '+vari[ivari] +' '+VARN[ifld]
+            ofile='ANAL_plots/'+ 'corr2'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+            cplot.pcolormesh(LONG, LATG, gr2_corr, levels=None,ticks=None,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)
+            
+            
             if ( len(GLB_CRPS) > 0 ):
                 title='crps difference '+labels[0]+rcps_str0+' - '+labels[1]+rcps_str1+' '+vari[ivari] +' '+VARN[ifld]
                 ofile='ANAL_plots/'+ 'crps'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
                 cplot.pcolormesh(LONG, LATG, grd_crps, levels=LEV_CRPS,ticks=TIC_CRPS,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=BMAP, add_gridlines=True)
             
+                title='crps '+labels[0]+rcps_str0+' '+vari[ivari] +' '+VARN[ifld]
+                ofile='ANAL_plots/'+ 'crps1'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+                cplot.pcolormesh(LONG, LATG, gr1_crps, levels=None,ticks=None,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)
+
+                title='crps '+labels[1]+rcps_str1+' '+vari[ivari] +' '+VARN[ifld]
+                ofile='ANAL_plots/'+ 'crps2'+'_'+expts_string+'_'+vari[ivari]+'_'+VARN[ifld]+'_'+dates_string+'.png'
+                cplot.pcolormesh(LONG, LATG, gr2_crps, levels=None,ticks=None,obar='horizontal', title=title, outfile=ofile, make_global=True, project='PlateCarree', cmap=CMAP, add_gridlines=True)
+
             tim_merr = []
             tim_rmse = []
             tim_corr = []

@@ -166,6 +166,40 @@ def find_nearest_glcpt(lon_pt, lat_pt, lon_grid, lat_grid):
     jpt=jcc[idx]
     return ipt, jpt
 
+def find_nearest_gcircle(lon_pt, lat_pt, lon_grid, lat_grid):
+
+    lon_pt_rad = np.pi * lon_pt / 180.0
+    lat_pt_rad = np.pi * lat_pt / 180.0
+    lon_gd_rad = np.pi * lon_grid / 180.0
+    lat_gd_rad = np.pi * lat_grid / 180.0
+    delta_lon = lon_pt_rad - lon_gd_rad
+    
+    gr_circle_arc = np.arccos( np.sin(lat_pt_rad) * np.sin(lat_gd_rad) + np.cos(lat_pt_rad) * np.cos(lat_gd_rad) * np.cos( delta_lon ) )
+
+    ipt, jpt = np.unravel_index(np.argmin(gr_circle_arc), gr_circle_arc.shape)
+    return ipt, jpt
+    
+def find_nearest_gcircle_fast(lon_pt, lat_pt, lon_grid, lat_grid, delmax=1.0):
+    ## SLOWER THAN find_nearest_gcircle!!!
+
+    delrad = np.pi * lon_pt / 180.0
+    lon_pt_rad = np.pi * lon_pt / 180.0
+    lat_pt_rad = np.pi * lat_pt / 180.0
+    lon_gd_rad = np.pi * lon_grid / 180.0
+    lat_gd_rad = np.pi * lat_grid / 180.0
+
+    delta_lon = lon_pt_rad - lon_gd_rad
+    delta_lat = lat_pt_rad - lat_gd_rad
+    
+    ifast = np.where( ( np.abs(np.sin(delta_lon)) < delrad ) &  ( np.abs(np.sin(delta_lat)) < delrad ) ) 
+    
+    gr_circle_arc = 2 * np.pi * np.ones(lon_grid.shape)
+    gr_circle_arc[ifast] = np.arccos( np.sin(lat_pt_rad) * np.sin(lat_gd_rad[ifast]) + np.cos(lat_pt_rad) * np.cos(lat_gd_rad[ifast]) * np.cos( delta_lon[ifast] ) )
+
+
+    ipt, jpt = np.unravel_index(np.argmin(gr_circle_arc), gr_circle_arc.shape)
+    return ipt, jpt
+
 def find_nearest_point_list(lon_list, lat_list, lon_grid, lat_grid, mp=False):
     if ( len(lon_list) != len(lat_list) ):
         print('NEED equal length lists')
@@ -184,4 +218,30 @@ def find_nearest_point_list(lon_list, lat_list, lon_grid, lat_grid, mp=False):
         lon_pt=lon_list[ipt]
         lat_pt=lat_list[ipt]
         IJPTS.append( find_nearest_point(lon_pt, lat_pt, lon_grid, lat_grid) )
+    return IJPTS
+
+def find_nearest_gcircle_list(lon_list, lat_list, lon_grid, lat_grid, mp=False, fast=False):
+    if ( len(lon_list) != len(lat_list) ):
+        print('NEED equal length lists')
+        return None
+    npts = len(lon_list)
+    IJPTS=[]
+    if ( mp ):
+      nproc = np.max([NCPUS, npts])
+      PPOOL = multiprocessing.Pool(nproc)
+      IZIP = zip(lon_list, lat_list, itertools.repeat(lon_grid), itertools.repeat(lat_grid))
+      if ( fast ):
+          IJPTS = PPOOL.starmap(find_nearest_gcircle_fast, IZIP)
+      else:
+          IJPTS = PPOOL.starmap(find_nearest_gcircle, IZIP)
+      PPOOL.close()
+      PPOOL.join()
+    else:
+      for ipt in range(npts):
+        lon_pt=lon_list[ipt]
+        lat_pt=lat_list[ipt]
+        if ( fast ):
+            IJPTS.append( find_nearest_gcircle_fast(lon_pt, lat_pt, lon_grid, lat_grid) )
+        else:
+            IJPTS.append( find_nearest_gcircle(lon_pt, lat_pt, lon_grid, lat_grid) )
     return IJPTS
